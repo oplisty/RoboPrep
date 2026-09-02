@@ -58,7 +58,7 @@ function formatError(scope: string, issues: readonly Issue[]): string {
 }
 
 /**
- * Validate `process.env` against `schema`.
+ * Validate an environment source against `schema`.
  *
  * In production a missing/invalid variable aborts immediately with a readable
  * message — a half-configured deploy is worse than a failed boot. Outside
@@ -69,8 +69,9 @@ export function parseEnv<S extends z.ZodType>(
   schema: S,
   scope: string,
   fallback: z.output<S>,
+  source: unknown = process.env,
 ): z.output<S> {
-  const result = schema.safeParse(process.env);
+  const result = schema.safeParse(source);
 
   if (result.success) {
     return result.data as z.output<S>;
@@ -102,7 +103,14 @@ export const SERVER_FALLBACK: ServerEnv = {
 };
 
 export function parsePublicEnv(): PublicEnv {
-  return parseEnv(publicEnvSchema, "public", PUBLIC_FALLBACK);
+  // Next.js only inlines statically referenced NEXT_PUBLIC_* variables into the
+  // browser bundle. Passing process.env directly (or using a dynamic key) leaves
+  // these values undefined in Client Components.
+  return parseEnv(publicEnvSchema, "public", PUBLIC_FALLBACK, {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  });
 }
 
 export function parseServerEnv(): ServerEnv {
