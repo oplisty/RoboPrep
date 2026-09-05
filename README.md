@@ -43,7 +43,7 @@ pnpm install --frozen-lockfile
 ### 2. 创建 Supabase 项目并执行数据库迁移
 
 1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 创建一个新项目。
-2. 在项目的 **Project Settings → API** 复制 Project URL、anon key 和 service role key。
+2. 在项目的 **Project Settings → API Keys** 复制 Project URL、Publishable key 和 Secret key。Publishable key 替代旧的 anon key，Secret key 替代旧的 service role key（这两类旧 key 将于 2026 年底弃用）。
 3. 在本地登录并关联项目：
 
    ```bash
@@ -146,7 +146,7 @@ supabase status
 supabase db reset
 ```
 
-把 supabase status 输出的 API URL、anon key 和 service role key 填入 .env.local，并将本地站点地址设为 http://localhost:3001：
+把 supabase status 输出的 API URL、Publishable key 和 Secret key 填入 .env.local，并将本地站点地址设为 http://localhost:3001：
 
 ```dotenv
 NEXT_PUBLIC_SITE_URL=http://localhost:3001
