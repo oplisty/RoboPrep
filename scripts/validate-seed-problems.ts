@@ -1,13 +1,18 @@
 /**
- * Validate seed_week5_function_problems.sql against the real ML judge.
+ * Validate seeded coding problems against the real ML judge.
  *
- * Reads the extracted seed JSON (produced by the Python extractor), builds an
- * MLEvaluationRequest per problem, runs each problem's solution_code through
- * LocalMLPythonAdapter, and reports whether every test case passes.
+ * Reads the extracted seed JSON (produced by scripts/extract_seed_problems.py),
+ * builds an MLEvaluationRequest per problem, runs each problem's solution_code
+ * through LocalMLPythonAdapter, and reports whether every test case passes.
  *
  * Usage:
+ *   python scripts/extract_seed_problems.py supabase/seed_torchcode_problems.sql \
+ *     --out /tmp/torchcode_seed.json
  *   PYTHON_EXECUTABLE=/Users/oplisty/.workbuddy/binaries/python/envs/default/bin/python \
- *     pnpm tsx scripts/validate-seed-problems.ts
+ *     node --experimental-strip-types --loader ./scripts/tests/loader.mjs \
+ *     scripts/validate-seed-problems.ts --input /tmp/torchcode_seed.json
+ *
+ * --input defaults to /tmp/seed_data_fixed.json (the Week 5 workflow).
  */
 import { readFileSync } from "node:fs";
 import { LocalMLPythonAdapter } from "../src/lib/judge/adapters/ml-python";
@@ -75,7 +80,18 @@ function parseConfig(json: string) {
 
 function buildExpected(expectedJson: string): ExpectedValue {
   const e = JSON.parse(expectedJson);
-  // kind/value/shape/dtype/exception/gradient forms
+  // DB rows store snake_case; the runtime ExpectedValue type is camelCase.
+  // value/shape/dtype/gradient keys happen to match, exception/performance do not.
+  if (e.kind === "exception") {
+    return {
+      kind: "exception",
+      exceptionType: e.exception_type,
+      ...(e.message_pattern ? { messagePattern: e.message_pattern } : {}),
+    } as ExpectedValue;
+  }
+  if (e.kind === "performance") {
+    return { kind: "performance", ...(e.max_runtime_ms !== undefined ? { maxRuntimeMs: e.max_runtime_ms } : {}) } as ExpectedValue;
+  }
   return e as ExpectedValue;
 }
 
@@ -105,7 +121,13 @@ function buildTestCase(tc: SeedTestCase): StructuredTestCase {
 }
 
 async function main() {
-  const data = JSON.parse(readFileSync("/tmp/seed_data_fixed.json", "utf8")) as SeedData;
+  const inputArg = (() => {
+    const idx = process.argv.indexOf("--input");
+    if (idx !== -1 && process.argv[idx + 1]) return process.argv[idx + 1];
+    const positional = process.argv.filter((a, i) => i >= 2 && !a.startsWith("--") && process.argv[i - 1] !== "--input");
+    return positional[0] ?? "/tmp/seed_data_fixed.json";
+  })();
+  const data = JSON.parse(readFileSync(inputArg, "utf8")) as SeedData;
   const byProblem = new Map<string, SeedTestCase[]>();
   for (const tc of data.testCases) {
     const list = byProblem.get(tc.problem_id) ?? [];

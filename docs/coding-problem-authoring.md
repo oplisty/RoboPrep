@@ -178,3 +178,67 @@ pnpm check:coding
 - No CUDA, no distributed code, no random behavior without a fixed `seed`.
 - Hidden tests never leak through Run: `check:coding` and the API boundary
   enforce visible-only execution for Run.
+
+## 7. Batch authoring workflow (TorchCode import)
+
+For batches of structured problems, write problem modules and let the
+generator compute the expected values — no hand-rounded constants:
+
+1. **Author a module** `scripts/torchcode_problems/<module_name>.py` with:
+   - `PROBLEM`: metadata dict — Chinese `title`/`description`/`constraints`,
+     `difficulty`, `category`, `slug`, `evaluation_mode`, `entrypoint_type`,
+     `entrypoint_name`, `framework`, `resource_profile`, `evaluator_config`;
+   - `STARTER` / `SOLUTION`: verbatim code blocks (SOLUTION is executed to
+     produce expected values, so keep it exactly consistent with the
+     documented math);
+   - `build_cases()`: list built with `framework.case` / `visible_example`;
+     inputs are always literal tensor specs created from a seeded
+     `torch.Generator` (`framework.T`). Expected specs: `VALUE()` /
+     `VALUE_LIT(x)` / `SHAPE()` / `GRAD()` / `EXC(type, pattern?)` — the
+     `auto` ones are filled in by running SOLUTION.
+2. **Register the module** in `PROBLEM_MODULES` in
+   `scripts/generate_coding_seed.py` (explicit list = deterministic IDs;
+   problems start at `...0134`, cases at `...0400`).
+3. **Generate + validate** in the pinned env:
+
+   ```bash
+   PY=/Users/oplisty/.workbuddy/binaries/python/envs/default/bin/python
+   $PY scripts/generate_coding_seed.py --out supabase/seed_torchcode_problems.sql
+   $PY scripts/extract_seed_problems.py supabase/seed_torchcode_problems.sql \
+     --out /tmp/seed_data.json
+   PYTHON_EXECUTABLE=$PY node --experimental-strip-types \
+     --loader ./scripts/tests/loader.mjs scripts/validate-seed-problems.ts \
+     --input /tmp/seed_data.json
+   # → Problems: N, failing: 0
+   ```
+
+   Output is deterministic — regenerating must produce a byte-identical file.
+
+4. **Apply locally and audit**: the seed file is applied manually (not via
+   `supabase db reset`, which only runs `seed.sql`):
+
+   ```bash
+   docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+     < supabase/seed_torchcode_problems.sql
+   pnpm check:coding   # needs .env.local pointing at the local stack
+   ```
+
+   Note the legacy `comparison_mode` column only accepts
+   `exact/trimmed/numeric` (DB CHECK) — the generator emits `numeric`; the
+   ML judge itself reads `evaluator_config`.
+
+Authoring gotchas baked into the generator (still worth knowing):
+
+- Gradient cases must avoid the ReLU/max kink at exactly 0 — subgradient
+  conventions differ between `torch.maximum` and `clamp`, so keep gradient
+  inputs away from ties.
+- Class-mode gradient labels require the entrypoint to subclass
+  `torch.nn.Module` (labels are `param:<name>` from `named_parameters()`),
+  and every injected weight must be registered as an `nn.Parameter` with the
+  exact name stated in the description.
+- String outputs are not compared numerically: `numeric_comparison` flattens
+  numbers only. If a problem returns tokens, return **ids** (list[int]) via a
+  vocab lookup, not strings.
+- Randomized-looking problems (dropout, sampling) are made deterministic by
+  passing masks/seeds as literal inputs instead of sampling inside the
+  solution.

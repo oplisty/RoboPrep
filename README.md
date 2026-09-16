@@ -10,7 +10,7 @@
 
 - 面试经历：公司、岗位、年份、季节、地点、轮次和具体问题
 - Knowledge：Embodied AI、Transformer、RL、VLA、机器人学等主题的知识题
-- Coding：Python / Embodied AI coding 题与自动评测
+- Coding：Python / Embodied AI coding 题与自动评测。program、function、class 三种判题模式，PyTorch 题按数值、梯度、形状逐用例判分，并配有「LLM 核心算子」等主题题单（collections）
 - 公司情报：岗位分布、常见主题、面试趋势和题目频率
 - 内容管线：原始经历 → 结构化草稿 → 人工审核 → 发布
 
@@ -55,6 +55,11 @@ pnpm install --frozen-lockfile
 supabase db push 会按顺序执行 supabase/migrations/ 中的迁移。不要对线上数据库执行 supabase db reset，它是本地开发用的重置命令。
 
 如果需要演示数据，只在新建的开发或 staging 项目中打开 Supabase SQL Editor，把 supabase/seed.sql 的内容粘贴进去执行。这是 development seed，不建议直接写入已有生产库。
+
+题库的补充数据同样不在迁移链里，按需通过 SQL Editor 手动执行（只插入新题，不修改已有数据）：
+
+- supabase/seed_week5_function_problems.sql：33 道 function/class 结构化题
+- supabase/seed_torchcode_problems.sql：26 道「LLM 核心算子」题（改写自已获授权的 [TorchCode](https://github.com/duoan/TorchCode) 题集），从零手写 PyTorch 算子、注意力变体与架构模块
 
 ### 3. 在 Vercel 导入仓库
 
@@ -159,6 +164,25 @@ pnpm dev
 ```
 
 打开 <http://localhost:3001>。supabase db reset 会重新执行所有迁移和 seed.sql，只对本地数据库使用。
+
+db reset 之后本地只有 seed.sql 的演示题库。要练习完整题库，把两个补充 seed 粘贴进本地 Studio（<http://127.0.0.1:54323>）的 SQL Editor 执行，或用 psql 导入；每次 db reset 后都需要重新执行一遍：
+
+```bash
+docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < supabase/seed_week5_function_problems.sql
+docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < supabase/seed_torchcode_problems.sql
+```
+
+### 本地启用 Coding 判题
+
+function/class 模式的题目（含 PyTorch 题）由本地 Python 子进程判题，需要一个装好 PyTorch 的解释器。在 .env.local 中把 PYTHON_EXECUTABLE 指向 Python 3.13 + torch(CPU) + numpy 环境（版本要求见 [docs/judge-environment.md](./docs/judge-environment.md)）：
+
+```dotenv
+PYTHON_EXECUTABLE=/path/to/python3.13-with-torch
+```
+
+不设置时默认使用 python3；解释器里没有 torch 时，PyTorch 题的 Run 会报 forbidden_import。生产环境则走隔离的 Judge0 服务，与该变量无关。
 
 ### 使用已有 Supabase 项目
 
@@ -286,6 +310,9 @@ src/components/            # 页面组件和 UI primitives
 src/lib/                   # Supabase、鉴权、查询、解析、审核、judge
 supabase/migrations/       # 数据库迁移和 RLS 策略
 supabase/seed.sql          # 本地 development seed
+supabase/seed_*.sql        # 补充题库 seed（手动导入）
+scripts/torchcode_problems/  # LLM 核心算子题源定义（题目元数据 + 参考解 + 用例）
+scripts/generate_coding_seed.py  # 从题源生成 seed_torchcode_problems.sql
 contributions/             # 社区 PR 提交的面试经验
 scripts/import-contributions.ts
 docs/                      # 架构、隐私、部署和运维文档
@@ -301,3 +328,5 @@ docs/                      # 架构、隐私、部署和运维文档
 - [docs/backup-recovery.md](./docs/backup-recovery.md)：备份与恢复
 - [docs/interview-submission-privacy.md](./docs/interview-submission-privacy.md)：面试经历隐私规则
 - [docs/question-extraction-guidelines.md](./docs/question-extraction-guidelines.md)：问题抽取和人工审核规则
+- [docs/coding-problem-authoring.md](./docs/coding-problem-authoring.md)：coding 题写作指南与批量生成工作流
+- [docs/judge-environment.md](./docs/judge-environment.md)：ML judge 运行环境、资源限制与导入白名单
