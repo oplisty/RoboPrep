@@ -8,7 +8,7 @@
 
 ## 最新动态
 
-- **2026-09-16 · Coding 题库新增 26 道「LLM 核心算子」**：从 [TorchCode](https://github.com/duoan/TorchCode)（已获授权）改写并整合，覆盖从零手写 PyTorch 的常考主题——基础算子（ReLU / GELU / 交叉熵 / BatchNorm / Conv2d…）、注意力变体（GQA、滑窗、线性注意力、Flash Attention 数值版）、架构模块（LoRA、ViT Patch Embedding、GPT-2 Block、MoE）与训练解码（Adam、梯度裁剪、Beam Search、Top-p、BPE、INT8 量化、DPO 损失）。全中文题面，140 个测试用例全部经真实判题器验证，配套新题单「LLM 核心算子」。同时上线批量出题工作流：题源定义 → 期望值自动生成 → 判题器校验。
+- **2026-09-16 · Coding 题库新增 26 道「LLM 核心算子」**：覆盖从零手写 PyTorch 的常考主题——基础算子（ReLU / GELU / 交叉熵 / BatchNorm / Conv2d…）、注意力变体（GQA、滑窗、线性注意力、Flash Attention 数值版）、架构模块（LoRA、ViT Patch Embedding、GPT-2 Block、MoE）与训练解码（Adam、梯度裁剪、Beam Search、Top-p、BPE、INT8 量化、DPO 损失）。全中文题面，140 个测试用例全部经真实判题器验证，配套新题单「LLM 核心算子」。同时上线批量出题工作流：题源定义 → 期望值自动生成 → 判题器校验。
 - **2026-09-02 · V1.0.0 正式发布**：面试经历、Knowledge、Coding（53 题与 PyTorch ML 判题）、公司情报与完整内容审核管线。
 
 完整更新历史见 [CHANGELOG.md](./CHANGELOG.md)。
@@ -52,12 +52,11 @@ pnpm install --frozen-lockfile
 1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 创建一个新项目。
 2. 在项目的 **Project Settings → API Keys** 复制 Project URL、Publishable key 和 Secret key。Publishable key 替代旧的 anon key，Secret key 替代旧的 service role key（这两类旧 key 将于 2026 年底弃用）。
 3. 在本地登录并关联项目：
-
-   ```bash
+  ```bash
    supabase login
    supabase link --project-ref <your-project-ref>
    supabase db push
-   ```
+  ```
 
 supabase db push 会按顺序执行 supabase/migrations/ 中的迁移。不要对线上数据库执行 supabase db reset，它是本地开发用的重置命令。
 
@@ -97,14 +96,12 @@ FLAG_LLM_INGESTION=off
 - SUPABASE_SERVICE_ROLE_KEY 会绕过 RLS，绝不能加 NEXT_PUBLIC_ 前缀、提交到 Git 或发给 PR 贡献者。缺少它时，浏览公共内容仍可用，但面试提交和审核队列不可用。
 - Preview 环境建议设置 FLAG_ROBOTS_INDEX=off，避免预览站被搜索引擎收录；Production 不要设置为 off。
 - 如果要启用 coding judge，必须使用隔离的 Judge0-compatible 服务：
-
   ```dotenv
   JUDGE_PROVIDER=judge0
   JUDGE0_BASE_URL=https://<your-judge0-host>
   JUDGE0_API_KEY=<optional-api-key>
   FLAG_CODING_JUDGE=on
   ```
-
   JUDGE_PROVIDER=local 只适合本地开发，生产环境不会执行本地子进程。
 
 ### 4. 配置 Supabase Auth 回调地址
@@ -113,7 +110,6 @@ FLAG_LLM_INGESTION=off
 
 - **Site URL**：和 NEXT_PUBLIC_SITE_URL 完全一致
 - **Redirect URLs**：
-
   ```text
   https://<your-domain>/auth/callback
   https://<your-domain>/reset-password
@@ -142,7 +138,7 @@ pnpm build
 pnpm smoke:prod -- https://<your-domain>
 ```
 
-也可以直接访问 https://<your-domain>/api/health，确认返回成功状态。
+也可以直接访问 https:///api/health，确认返回成功状态。
 
 ## 本地开发
 
@@ -158,7 +154,7 @@ supabase status
 supabase db reset
 ```
 
-把 supabase status 输出的 API URL、Publishable key 和 Secret key 填入 .env.local，并将本地站点地址设为 http://localhost:3001：
+把 supabase status 输出的 API URL、Publishable key 和 Secret key 填入 .env.local，并将本地站点地址设为 [http://localhost:3001：](http://localhost:3001：)
 
 ```dotenv
 NEXT_PUBLIC_SITE_URL=http://localhost:3001
@@ -170,9 +166,9 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3001
 pnpm dev
 ```
 
-打开 <http://localhost:3001>。supabase db reset 会重新执行所有迁移和 seed.sql，只对本地数据库使用。
+打开 [http://localhost:3001](http://localhost:3001)。supabase db reset 会重新执行所有迁移和 seed.sql，只对本地数据库使用。
 
-db reset 之后本地只有 seed.sql 的演示题库。要练习完整题库，把两个补充 seed 粘贴进本地 Studio（<http://127.0.0.1:54323>）的 SQL Editor 执行，或用 psql 导入；每次 db reset 后都需要重新执行一遍：
+db reset 之后本地只有 seed.sql 的演示题库。要练习完整题库，把两个补充 seed 粘贴进本地 Studio（[http://127.0.0.1:54323](http://127.0.0.1:54323)）的 SQL Editor 执行，或用 psql 导入；每次 db reset 后都需要重新执行一遍：
 
 ```bash
 docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
@@ -272,7 +268,7 @@ git push -u origin data/interview-<company>-<year>
 
 - base repository：oplisty/RoboPrep
 - base branch：main
-- 标题建议：data: add <company> <role> interview
+- 标题建议：data: add   interview
 - 描述中写明：公司/岗位/年份、是否为本人经历、是否已删除隐私和保密内容，以及你运行过的检查。
 
 维护者会检查格式、隐私、重复内容和事实完整性。需要修改时，直接继续 push 到同一个分支，PR 会自动更新。
@@ -337,3 +333,4 @@ docs/                      # 架构、隐私、部署和运维文档
 - [docs/question-extraction-guidelines.md](./docs/question-extraction-guidelines.md)：问题抽取和人工审核规则
 - [docs/coding-problem-authoring.md](./docs/coding-problem-authoring.md)：coding 题写作指南与批量生成工作流
 - [docs/judge-environment.md](./docs/judge-environment.md)：ML judge 运行环境、资源限制与导入白名单
+
