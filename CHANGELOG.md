@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.0 (2026-09-16)
+
+### Added
+- **LLM core operators problem set** (26 problems, 140 test cases): adapted
+  from [TorchCode](https://github.com/duoan/TorchCode) (with author
+  authorization) into the declarative structured judge format. Covers
+  from-scratch PyTorch implementations: basic operators (ReLU, GELU,
+  cross-entropy, embedding, linear, batchnorm, conv2d, inverted dropout,
+  linear regression), attention variants (GQA, sliding-window, linear,
+  Flash-Attention-style causal), architecture modules (LoRA, ViT patch
+  embed, GPT-2 block, MoE), training and decoding (Adam, cosine LR,
+  gradient clipping/accumulation, beam search, top-p filter, BPE, INT8
+  quantization) and the DPO loss. Chinese problem statements; new
+  "LLM 核心算子" collection.
+- **Batch authoring workflow**: `scripts/torchcode_problems/` problem
+  source modules plus `scripts/generate_coding_seed.py`, which runs
+  reference solutions in the pinned environment to auto-compute expected
+  values (gradient convention, 6-decimal rounding) and emits deterministic
+  seed SQL. `scripts/extract_seed_problems.py` replaces the ad-hoc
+  `/tmp` extractor referenced by the authoring guide.
+
+### Fixed
+- `validate-seed-problems.ts`: exception-kind expected values were passed
+  to the judge with DB snake_case keys, so `exception_type` never matched
+  (`mapExpected` reads `exceptionType`); now mapped correctly. Also added
+  a `--input <path>` argument (previously hardcoded to
+  `/tmp/seed_data_fixed.json`).
+
+### Docs
+- README: "最新动态" section, supplementary seed import steps, local
+  `PYTHON_EXECUTABLE` judge setup; authoring guide gained the batch
+  generation workflow.
+
 ## 1.0.0 (2026-09-02)
 
 First public V1.

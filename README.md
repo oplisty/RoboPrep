@@ -6,6 +6,13 @@
 
 > 只想贡献面试经验？直接跳到[通过 PR 提交面试经验](#通过-pr-提交面试经验)。
 
+## 最新动态
+
+- **2026-09-16 · Coding 题库新增 26 道「LLM 核心算子」**：从 [TorchCode](https://github.com/duoan/TorchCode)（已获授权）改写并整合，覆盖从零手写 PyTorch 的常考主题——基础算子（ReLU / GELU / 交叉熵 / BatchNorm / Conv2d…）、注意力变体（GQA、滑窗、线性注意力、Flash Attention 数值版）、架构模块（LoRA、ViT Patch Embedding、GPT-2 Block、MoE）与训练解码（Adam、梯度裁剪、Beam Search、Top-p、BPE、INT8 量化、DPO 损失）。全中文题面，140 个测试用例全部经真实判题器验证，配套新题单「LLM 核心算子」。同时上线批量出题工作流：题源定义 → 期望值自动生成 → 判题器校验。
+- **2026-09-02 · V1.0.0 正式发布**：面试经历、Knowledge、Coding（53 题与 PyTorch ML 判题）、公司情报与完整内容审核管线。
+
+完整更新历史见 [CHANGELOG.md](./CHANGELOG.md)。
+
 ## 功能概览
 
 - 面试经历：公司、岗位、年份、季节、地点、轮次和具体问题
