@@ -8,6 +8,7 @@
 
 ## 最新动态
 
+- **2026-09-20 · Knowledge 题库新增 24 道「π 系列论文」高频题**：整理自 bo233 的具身智能面经《π 论文篇》（[知乎原文](https://zhuanlan.zhihu.com/p/2081126347766875774)，题干保留原文措辞）。覆盖 π0 架构与 Flow Matching 动作专家、π0.5 开放世界泛化、π\*0.6 的 ReCAP 后训练、π0.7 组合泛化、RLT 在线强化学习与 π-FAST 动作 Tokenization（DCT+BPE），并附演进脉络与 RT 系列 / OpenVLA 路线对比。每题配要点式标准答案与面试深挖答案，新增「π 系列 / Flow Matching / Action Chunking / 动作 Tokenization」四个主题，题库 10 → 34 题。
 - **2026-09-16 · Coding 题库新增 26 道「LLM 核心算子」**：覆盖从零手写 PyTorch 的常考主题——基础算子（ReLU / GELU / 交叉熵 / BatchNorm / Conv2d…）、注意力变体（GQA、滑窗、线性注意力、Flash Attention 数值版）、架构模块（LoRA、ViT Patch Embedding、GPT-2 Block、MoE）与训练解码（Adam、梯度裁剪、Beam Search、Top-p、BPE、INT8 量化、DPO 损失）。全中文题面，140 个测试用例全部经真实判题器验证，配套新题单「LLM 核心算子」。同时上线批量出题工作流：题源定义 → 期望值自动生成 → 判题器校验。
 - **2026-09-02 · V1.0.0 正式发布**：面试经历、Knowledge、Coding（53 题与 PyTorch ML 判题）、公司情报与完整内容审核管线。
 

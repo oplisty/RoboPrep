@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0 (2026-09-20)
+
+### Added
+- **π-series interview question set** (24 canonical questions): sourced from
+  bo233's 具身智能面经（一）：π 论文篇 ([Zhihu original](https://zhuanlan.zhihu.com/p/2081126347766875774),
+  authorized repost on the 深蓝职通车 WeChat account). Question wordings kept
+  verbatim in Chinese; canonical/deep answers curated from the papers. Covers
+  π0 architecture and the flow matching action expert, π0.5 co-training and
+  open-world generalization, π\*0.6 RECAP / replay buffers / reward
+  modelling, π0.7 compositional generalization, RLT (RL Token) online RL,
+  π-FAST action tokenization (DCT+BPE) and series-level evolution plus the
+  RT-series / OpenVLA comparison. Seeded with four new topics (π 系列,
+  Flow Matching, Action Chunking, 动作 Tokenization): seed totals are now
+  34 canonical questions (was 10) and 18 topics (was 14).
+
 ## 1.1.0 (2026-09-16)
 
 ### Added
