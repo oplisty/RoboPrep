@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.3.0 (2026-09-22)
+
+### Added
+- **LLM & embodied fundamentals question set** (19 canonical questions):
+  sourced from a 小红书 high-frequency question card set (PART 1 大模型八股
+  12 items + PART 2 具身 VLA 18 items); the 11 items already covered by the
+  bank were deduped per the extraction guidelines. New questions cover
+  scaled dot-product (√dk), MHA/GQA, BN/LN/RMSNorm, LoRA (with embodied
+  applications), distributed-training parallelism, Flow Matching vs
+  diffusion, GPU memory optimization, inference acceleration (KV Cache /
+  FlashAttention / PagedAttention), alignment methods (SFT/RLHF/DPO/GRPO),
+  LLM evaluation, ACT, DAgger, LeRobot format, UMI, embodied data
+  augmentation, reward design, real-time control, deployment &
+  Sim2Real, and embodied benchmarks (noting RT-1/RT-2 are models, not
+  benchmarks). Six new topics (参数高效微调, 分布式训练, 对齐, 模仿学习,
+  Sim2Real, 评测与基准): seed totals now 53 canonical questions (was 34)
+  and 24 topics (was 18).
+
 ## 1.2.0 (2026-09-20)
 
 ### Added
