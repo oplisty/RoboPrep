@@ -8,9 +8,10 @@
 --   positions            5
 --   topics              18 (hierarchical)
 --   questions           34 canonical (10 base + 24 π-series, see questions blocks)
---   interviews          71 published (real 小红书 posts, regenerate with scripts/generate_interview_seed.py)
---   interview_questions 349 (curated: only real interviewer questions; official
---                         marketing, blogger narration and status-only posts are excluded)
+--   interviews          75 published (71 real 小红书 posts, regenerate with
+--                         scripts/generate_interview_seed.py + 4 user-contributed
+--                         digests, see hand-curated block below)
+--   interview_questions 360 (349 curated from the corpus + 11 user-contributed)
 -- ---------------------------------------------------------------------------
 
 begin;
@@ -1241,6 +1242,95 @@ insert into public.interview_tags (interview_id, tag) values
   ('74df3731-ee74-50bc-85e9-9089b588df65', '2026')
 ;
 -- <<< END generated interview posts
+
+-- ---------------------------------------------------------------------------
+-- hand-curated interview records (user-contributed digests, 2026-09)
+--
+-- Three candidate-reported interview summaries (宇树 / 小鹏 / 智元), paraphrased
+-- by the submitter rather than verbatim transcripts. Kept outside the
+-- generated block on purpose: they are not part of the 小红书 OCR corpus and
+-- must survive `scripts/generate_interview_seed.py` regeneration.
+-- ---------------------------------------------------------------------------
+
+insert into public.interviews (
+  id, company_id, position_id, year, season, location, interview_type, source_type, source_url,
+  title, slug, round_count, summary, published_at, status, verified_at,
+  experience_level, employment_type, application_stage, difficulty_overall,
+  language, is_anonymous, quality_score
+) values
+  (
+    'e1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000005', null,
+    2026, 'Autumn', null, null, 'candidate_report', null,
+    '宇树 VLA 数据算法面（用户投稿摘要）', 'unitree-2026-09-user-report', 1,
+    '围绕 VLA 数据算法：如何判定一条轨迹是不是高质量数据、模型失效时如何归因于数据/模型/执行。面试官整体更看重数据、模型和真机结果之间的闭环。内容为投稿人口述整理，非逐字记录。',
+    '2026-09-01 00:00:00+00', 'published', null,
+    'unknown', 'unknown', 'technical', 'unknown', 'zh-CN', true, null
+  ),
+  (
+    'e1000000-0000-4000-8000-000000000002', '712241b7-9724-541b-8d62-2ac3e8478d89', null,
+    2026, 'Autumn', null, null, 'candidate_report', null,
+    '小鹏 世界模型与跨地域泛化面（用户投稿摘要）', 'xpeng-2026-09-user-report', 1,
+    '围绕世界模型（动作可控、多视角一致、长时序稳定）与国内训练的 VLA 在海外交通场景的失效风险。团队更关注世界模型、跨地域泛化和自动驾驶数据闭环。内容为投稿人口述整理，非逐字记录。',
+    '2026-09-01 00:00:00+00', 'published', null,
+    'unknown', 'unknown', 'technical', 'unknown', 'zh-CN', true, null
+  ),
+  (
+    'e1000000-0000-4000-8000-000000000003', '3bfbb2a3-39f3-5a9b-ad37-ad93ea3c9882', null,
+    2026, 'Autumn', null, null, 'candidate_report', null,
+    '智元 真机失败排查思路面（用户投稿摘要）', 'agibot-2026-09-user-report', 1,
+    '覆盖面最广的一场：离线评测好但真机频繁失败时，应从感知/规划/控制/数据/Sim2Real 哪里开始排查。VLA、世界模型、强化学习和机器人闭环都需要理解。内容为投稿人口述整理，非逐字记录。',
+    '2026-09-01 00:00:00+00', 'published', null,
+    'unknown', 'unknown', 'technical', 'unknown', 'zh-CN', true, null
+  ),
+  (
+    'e1000000-0000-4000-8000-000000000004', 'c1000000-0000-4000-8000-000000000001', null,
+    2026, 'Autumn', null, null, 'candidate_report', null,
+    '字节 Seed 具身秋招二三面（用户投稿摘要）', 'bytedance-seed-2026-09-user-report', 2,
+    '秋招二三面两轮整体围绕项目和数据展开：轨迹数据清洗取舍、多模态时间对齐、数据质量量化、Edge Case 发现与回流、数据收益归因、以及数据规模扩大 10 倍后清洗与加载方案的可持续性。内容为投稿人按真实考察方向脱敏整理，非逐字记录。',
+    '2026-09-01 00:00:00+00', 'published', null,
+    'unknown', 'unknown', 'technical', 'unknown', 'zh-CN', true, null
+  );
+
+insert into public.interview_rounds (id, interview_id, round_number, title, round_type, duration_minutes, interviewer_role) values
+  ('e1000000-0000-4000-8000-000000000101', 'e1000000-0000-4000-8000-000000000001', 1, null, 'technical', null, null),
+  ('e1000000-0000-4000-8000-000000000102', 'e1000000-0000-4000-8000-000000000002', 1, null, 'technical', null, null),
+  ('e1000000-0000-4000-8000-000000000103', 'e1000000-0000-4000-8000-000000000003', 1, null, 'technical', null, null),
+  ('e1000000-0000-4000-8000-000000000104', 'e1000000-0000-4000-8000-000000000004', 1, null, 'technical', null, null);
+
+insert into public.interview_questions (id, interview_id, question_id, round_number, order_index, original_wording, notes, question_context, answer_summary, difficulty) values
+  ('e1000000-0000-4000-8000-000000000201', 'e1000000-0000-4000-8000-000000000001', null, 1, 1, 'VLA 数据算法里，怎么判断一条机器人轨迹是不是高质量数据？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000202', 'e1000000-0000-4000-8000-000000000001', null, 1, 2, '模型效果不好时，怎么判断问题来自数据、模型还是机器人执行？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000203', 'e1000000-0000-4000-8000-000000000002', null, 1, 1, '世界模型怎样实现动作可控、多视角一致和长时序稳定？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000204', 'e1000000-0000-4000-8000-000000000002', null, 1, 2, '国内训练出来的 VLA 模型，到了海外交通场景为什么可能失效？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000205', 'e1000000-0000-4000-8000-000000000003', null, 1, 1, '离线评测效果很好，上真机却频繁失败，应该从感知、规划、控制、数据还是 Sim2Real 开始排查？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000206', 'e1000000-0000-4000-8000-000000000004', null, 1, 1, '一批机器人轨迹数据拿到手后，怎么判断哪些能训练、哪些应该清洗掉？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000207', 'e1000000-0000-4000-8000-000000000004', null, 1, 2, '图像、文本、机器人状态和动作频率不同，怎么完成多模态时间对齐？如果直接按照最近时间戳匹配，会出现什么问题？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000208', 'e1000000-0000-4000-8000-000000000004', null, 1, 3, '数据质量应该怎么量化？除了完整率、异常率和重复率，能不能设计真正反映机器人任务有效性的指标？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000209', 'e1000000-0000-4000-8000-000000000004', null, 1, 4, '模型在真实环境中频繁失败，怎么自动发现 Edge Case 并回流？哪些失败数据值得优先标注，哪些重复失败其实没有继续训练的价值？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000210', 'e1000000-0000-4000-8000-000000000004', null, 1, 5, '加入一批新数据后成功率提升了，怎么证明收益确实来自这批数据，而不是训练参数、随机种子或者评测环境变化？', null, null, null, null),
+  ('e1000000-0000-4000-8000-000000000211', 'e1000000-0000-4000-8000-000000000004', null, 1, 6, '如果数据规模从5万条Episode扩大到50万条，原来的清洗规则、质量评估和数据加载方案还能不能继续使用？', null, null, null, null);
+
+update public.interview_questions iq
+set round_id = r.id
+from public.interview_rounds r
+where r.interview_id = iq.interview_id
+  and iq.interview_id in (
+    'e1000000-0000-4000-8000-000000000001',
+    'e1000000-0000-4000-8000-000000000002',
+    'e1000000-0000-4000-8000-000000000003',
+    'e1000000-0000-4000-8000-000000000004'
+  )
+  and r.round_number = coalesce(iq.round_number, 1);
+
+insert into public.interview_tags (interview_id, tag) values
+  ('e1000000-0000-4000-8000-000000000001', '用户投稿'),
+  ('e1000000-0000-4000-8000-000000000001', '2026'),
+  ('e1000000-0000-4000-8000-000000000002', '用户投稿'),
+  ('e1000000-0000-4000-8000-000000000002', '2026'),
+  ('e1000000-0000-4000-8000-000000000003', '用户投稿'),
+  ('e1000000-0000-4000-8000-000000000003', '2026'),
+  ('e1000000-0000-4000-8000-000000000004', '用户投稿'),
+  ('e1000000-0000-4000-8000-000000000004', '2026');
 
 -- ---------------------------------------------------------------------------
 -- coding problems (20 Python-first exercises)
