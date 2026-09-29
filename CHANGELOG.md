@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.4.0 (2026-09-29)
+
+### Added
+- **Embodied RL post-training question set** (26 canonical questions): sourced
+  from bo233's 具身智能面经（二）：强化学习为什么容易被问挂 ([WeChat repost by
+  深蓝职通车](https://mp.weixin.qq.com/s/aYwVgSD1GXZM1J3UPObVYA), sequel to the
+  π-series 面经（一）). Question wordings kept verbatim in Chinese; 2 items
+  already covered by the bank (PPO vs GRPO difference + KL constraint → base
+  question 3, Sim-to-Real gap localization → question 52) were deduped per the
+  extraction guidelines. Covers training paradigms and data (pretraining/SFT/
+  GRPO pipeline, when to switch from IL to RL, online vs offline RL, RL/IL
+  data mix, failure-trajectory uses, on/off-policy), reward design and credit
+  assignment (conflict diagnosis, sparse rewards and shaping validation,
+  length bias, return/advantage construction with terminal collisions,
+  success detection, potential-based shaping invariance), PPO/GRPO stability
+  (degenerate groups, ratio clip gradients, token log-prob and importance
+  sampling, GAE bias/variance), closed-loop rollout and evaluation (why RL
+  beats rule-based planners, rollout environment, open vs closed loop,
+  domain randomization) and SAC/DQN (max-entropy objective and loss signs,
+  reparameterization, twin critics, Double DQN, target networks, SAC vs PPO).
+  Seeded with three new topics (SAC, DQN, 奖励设计) and one retrofit
+  association of the existing reward-design question to 奖励设计: seed totals
+  are now 79 canonical questions (was 53) and 27 topics (was 24).
+
 ## 1.3.0 (2026-09-22)
 
 ### Added
