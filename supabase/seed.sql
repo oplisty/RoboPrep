@@ -1721,7 +1721,7 @@ insert into public.interviews (
     'unknown', 'unknown', 'technical', 'unknown', 'zh-CN', true, null
   ),
   (
-    'e1000000-0000-4000-8000-000000000003', '3bfbb2a3-39f3-5a9b-ad37-ad93ea3c9882', null,
+    'e1000000-0000-4000-8000-000000000003', 'c1000000-0000-4000-8000-000000000006', null,
     2026, 'Autumn', null, null, 'candidate_report', null,
     '智元 真机失败排查思路面（用户投稿摘要）', 'agibot-2026-09-user-report', 1,
     '覆盖面最广的一场：离线评测好但真机频繁失败时，应从感知/规划/控制/数据/Sim2Real 哪里开始排查。VLA、世界模型、强化学习和机器人闭环都需要理解。内容为投稿人口述整理，非逐字记录。',

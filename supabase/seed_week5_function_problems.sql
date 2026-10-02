@@ -59,7 +59,7 @@ def rms_norm(x: torch.Tensor, eps: float) -> torch.Tensor:
     scale = torch.sqrt(ms + eps)
     return x / scale
   $code$, 'rms_norm',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'rms_norm', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -252,7 +252,7 @@ def rope_rotate(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.
     second = x_first * sin + x_second * cos
     return torch.cat([first, second])
   $code$, 'rope_rotate',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'rope_rotate', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -384,7 +384,7 @@ def multi_head_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> t
     weights = F.softmax(scores, dim=-1)
     return torch.matmul(weights, v)
   $code$, 'multi_head_attention',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'multi_head_attention', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -455,7 +455,7 @@ def cross_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.
     weights = F.softmax(scores, dim=-1)
     return torch.matmul(weights, v)
   $code$, 'cross_attention',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'cross_attention', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -525,7 +525,7 @@ def discounted_returns(rewards: list, gamma: float) -> list:
         out[i] = round(acc, 6)
     return out
   $code$, 'discounted_returns',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'discounted_returns', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -574,7 +574,7 @@ insert into public.coding_problems (
   evaluation_mode, entrypoint_type, entrypoint_name, framework,
   resource_profile, evaluator_config
 ) values (
-  'b1000000-0000-4000-8000-000000000109', 'Generalized Advantage Estimation', 'generalized-advantage-estimation',
+  'b1000000-0000-4000-8000-000000000109', 'Generalized Advantage Estimation', 'generalized-advantage-estimation-torch',
   'hard', 'rl',
   'Compute the Generalized Advantage Estimate (GAE) for a trajectory. Given rewards r[0..T-1], value estimates v[0..T] (one extra terminal value), discount gamma and trace-decay lambda, compute delta_t = r_t + gamma * v[t+1] - v[t], then accumulate advantages backward: A_t = delta_t + (gamma * lambda) * A_{t+1}. Return the list of advantages for t = 0..T-1, rounded to six decimals.',
   'len(v) == len(r) + 1. gamma, lambda are in [0, 1].',
@@ -593,7 +593,7 @@ def gae(rewards: list, values: list, gamma: float, lam: float) -> list:
         adv[i] = round(acc, 6)
     return adv
   $code$, 'gae',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'gae', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -647,7 +647,7 @@ def ppo_ratio(new_prob: float, old_prob: float) -> float:
 def ppo_ratio(new_prob: float, old_prob: float) -> float:
     return round(new_prob / old_prob, 6)
   $code$, 'ppo_ratio',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'ppo_ratio', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -689,7 +689,7 @@ insert into public.coding_problems (
   evaluation_mode, entrypoint_type, entrypoint_name, framework,
   resource_profile, evaluator_config
 ) values (
-  'b1000000-0000-4000-8000-000000000111', 'PPO Clipped Objective', 'ppo-clipped-objective',
+  'b1000000-0000-4000-8000-000000000111', 'PPO Clipped Objective', 'ppo-clipped-objective-torch',
   'medium', 'rl',
   'Implement the PPO clipped surrogate objective (negative, for gradient descent). Given ratio tensor (batch,), advantages (batch,), and clip epsilon, compute per-item surrogate = min(ratio * adv, clip(ratio, 1-eps, 1+eps) * adv), then return the NEGATIVE mean so that minimizing the output improves the policy. Must be differentiable and operate on tensors.',
   'ratio and adv are 1-D float32 tensors of equal length 1..8.',
@@ -708,7 +708,7 @@ def ppo_loss(ratio: torch.Tensor, adv: torch.Tensor, eps: float) -> torch.Tensor
     surrogate = torch.min(ratio * adv, clipped * adv)
     return -surrogate.mean()
   $code$, 'ppo_loss',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'ppo_loss', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -778,7 +778,7 @@ def group_advantage(scores: list) -> list:
         return [0.0] * len(scores)
     return [round((s - mean) / std, 6) for s in scores]
   $code$, 'group_advantage',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'group_advantage', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -848,7 +848,7 @@ def kl_penalty(logp: list, logq: list) -> float:
         total += ratio * (diff - 1) + 1
     return round(total / len(logp), 6)
   $code$, 'kl_penalty',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'kl_penalty', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -918,7 +918,7 @@ def euler_to_quat(euler: torch.Tensor) -> torch.Tensor:
     z = cr * cp * sy - sr * sp * cy
     return torch.stack([w, x, y, z])
   $code$, 'euler_to_quat',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'euler_to_quat', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -993,7 +993,7 @@ def quat_multiply(a: list, b: list) -> list:
     z = aw * bz + ax * by - ay * bx + az * bw
     return [round(v, 6) for v in (w, x, y, z)]
   $code$, 'quat_multiply',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'quat_multiply', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1052,7 +1052,7 @@ import numpy as np
 def se3_transform(R: np.ndarray, t: np.ndarray, p: np.ndarray) -> np.ndarray:
     return (R @ p + t).astype(np.float64)
   $code$, 'se3_transform',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'se3_transform', 'numpy', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1112,7 +1112,7 @@ def compose_se3(R1: np.ndarray, t1: np.ndarray, R2: np.ndarray, t2: np.ndarray):
     t = t1 + R1 @ t2
     return (R.astype(np.float64), t.astype(np.float64))
   $code$, 'compose_se3',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'compose_se3', 'numpy', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1169,7 +1169,7 @@ def interpolate(a: list, b: list, n: int) -> list:
     return [[round(a[i] + (k / (n - 1)) * (b[i] - a[i]), 6) for i in range(len(a))]
             for k in range(n)]
   $code$, 'interpolate',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'interpolate', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1234,7 +1234,7 @@ def linear_beta_schedule(T: int, beta_start: float, beta_end: float) -> list:
 def linear_beta_schedule(T: int, beta_start: float, beta_end: float) -> list:
     return [round(beta_start + (t / T) * (beta_end - beta_start), 6) for t in range(1, T + 1)]
   $code$, 'linear_beta_schedule',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'linear_beta_schedule', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1294,7 +1294,7 @@ def ddpm_forward_noise(x0: torch.Tensor, alpha_bar_t: float, eps: torch.Tensor) 
     return torch.sqrt(torch.tensor(alpha_bar_t, dtype=x0.dtype)) * x0 + \
            torch.sqrt(torch.tensor(1.0 - alpha_bar_t, dtype=x0.dtype)) * eps
   $code$, 'ddpm_forward_noise',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'ddpm_forward_noise', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -1361,7 +1361,7 @@ def predict_x0(x_t: torch.Tensor, alpha_bar: float, eps_pred: torch.Tensor) -> t
     ab = torch.tensor(alpha_bar, dtype=x_t.dtype)
     return (x_t - torch.sqrt(1.0 - ab) * eps_pred) / torch.sqrt(ab)
   $code$, 'predict_x0',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'predict_x0', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -1427,7 +1427,7 @@ import torch
 def flow_matching_target(x0: torch.Tensor, x1: torch.Tensor) -> torch.Tensor:
     return x1 - x0
   $code$, 'flow_matching_target',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'flow_matching_target', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -1481,7 +1481,7 @@ def euler_step(x: list, v: list, dt: float) -> list:
 def euler_step(x: list, v: list, dt: float) -> list:
     return [round(a + dt * b, 6) for a, b in zip(x, v)]
   $code$, 'euler_step',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'euler_step', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1535,7 +1535,7 @@ def cfg_combine(v_uncond: list, v_cond: list, w: float) -> list:
 def cfg_combine(v_uncond: list, v_cond: list, w: float) -> list:
     return [round(a + w * (b - a), 6) for a, b in zip(v_uncond, v_cond)]
   $code$, 'cfg_combine',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'cfg_combine', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1786,7 +1786,7 @@ def normalize_actions(actions: np.ndarray) -> np.ndarray:
     std[std == 0] = 1.0
     return (actions - mean) / std
   $code$, 'normalize_actions',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'normalize_actions', 'numpy', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1848,7 +1848,7 @@ def mask_padded(actions: np.ndarray, lens: np.ndarray) -> np.ndarray:
     valid = time < lens[:, None, None]
     return np.where(valid, actions, 0.0)
   $code$, 'mask_padded',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'mask_padded', 'numpy', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -1956,7 +1956,7 @@ def episode_return(rewards: list) -> float:
 def episode_return(rewards: list) -> float:
     return round(sum(rewards), 6)
   $code$, 'episode_return',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'episode_return', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -2016,7 +2016,7 @@ def temporal_ensemble(chunks: list) -> list:
         out.append(round(total / n, 6))
     return out
   $code$, 'temporal_ensemble',
-  'python', 3000, 256, 'allclose', 0.000001, true, false,
+  'python', 3000, 256, 'numeric', 0.000001, true, false,
   'function', 'function', 'temporal_ensemble', 'python', 'standard_python',
   '{"comparison":"allclose","rtol":0.00001,"atol":0.000001,"check_shape":true}'
 );
@@ -2078,7 +2078,7 @@ def layer_norm(x: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor, eps: f
     x_hat = (x - mean) / torch.sqrt(var + eps)
     return x_hat * weight + bias
   $code$, 'layer_norm',
-  'python', 15000, 512, 'allclose', 0.0001, true, false,
+  'python', 15000, 512, 'numeric', 0.0001, true, false,
   'function', 'function', 'layer_norm', 'pytorch', 'ml_cpu_small',
   '{"comparison":"allclose","rtol":0.0001,"atol":0.00001,"check_shape":true,"check_dtype":false,"check_gradient":true}'
 );
@@ -2642,9 +2642,9 @@ from (
     ('multi-head-attention', $zh$Multi-Head Attention$zh$, $zh$给定已经完成投影的 query、key、value 张量，实现单步 Multi-Head Attention，三者形状均为（heads, seq, head_dim）。对每个 head h 计算 scores = (q[h] @ k[h].T) / sqrt(head_dim)，沿 key 维度应用 softmax，再计算 value 的加权和。返回拼接后的（heads, seq, head_dim）张量。所有运算必须使用张量算子，以保证结果可微。$zh$, $zh$所有 head 的 head_dim 相同；seq ≥ 1。$zh$),
     ('cross-attention', $zh$Cross Attention$zh$, $zh$实现 Cross Attention，让一个 query 在独立的 key/value memory 上进行注意力计算。给定 query 向量 q（dim,）以及 memory 的 key/value 矩阵（m, dim），计算 scores = q @ K.T / sqrt(dim)，沿 m 个 memory 槽位应用 softmax，最后返回 V 的加权和（长度为 dim 的向量）。这对应 decoder token 关注 encoder 输出的场景。$zh$, $zh$q 的长度为 dim；K 和 V 是（m, dim）矩阵。$zh$),
     ('discounted-returns', $zh$计算 Discounted Returns$zh$, $zh$给定奖励列表和折扣因子 gamma，计算每个时间步的折扣回报 G_t = reward_t + gamma * G_{t+1}，最后一步的 G 等于该步奖励。返回回报列表，并将每个值四舍五入到小数点后 6 位。$zh$, $zh$gamma 的范围是 [0, 1]；rewards 是非空浮点数列表。$zh$),
-    ('generalized-advantage-estimation', $zh$Generalized Advantage Estimation$zh$, $zh$计算一条轨迹的 Generalized Advantage Estimate（GAE）。给定奖励 r[0..T-1]、价值估计 v[0..T]（多出的一个是终止状态价值）、折扣 gamma 和 Trace 衰减系数 lambda，先计算 delta_t = r_t + gamma * v[t+1] - v[t]，再从后向前累积 A_t = delta_t + (gamma * lambda) * A_{t+1}。返回 t = 0..T-1 的 advantage 列表，并四舍五入到小数点后 6 位。$zh$, $zh$len(v) = len(r) + 1；gamma 和 lambda 的范围都是 [0, 1]。$zh$),
+    ('generalized-advantage-estimation-torch', $zh$Generalized Advantage Estimation$zh$, $zh$计算一条轨迹的 Generalized Advantage Estimate（GAE）。给定奖励 r[0..T-1]、价值估计 v[0..T]（多出的一个是终止状态价值）、折扣 gamma 和 Trace 衰减系数 lambda，先计算 delta_t = r_t + gamma * v[t+1] - v[t]，再从后向前累积 A_t = delta_t + (gamma * lambda) * A_{t+1}。返回 t = 0..T-1 的 advantage 列表，并四舍五入到小数点后 6 位。$zh$, $zh$len(v) = len(r) + 1；gamma 和 lambda 的范围都是 [0, 1]。$zh$),
     ('ppo-probability-ratio', $zh$PPO Probability Ratio$zh$, $zh$计算 PPO 使用的重要性采样比率：ratio = new_prob / old_prob。它用于比较新旧策略对同一动作的概率。返回四舍五入到小数点后 6 位的 ratio。两个概率都必须严格为正。$zh$, $zh$new_prob 和 old_prob 是 (0, 1] 范围内的浮点数。$zh$),
-    ('ppo-clipped-objective', $zh$PPO Clipped Objective$zh$, $zh$实现 PPO 的 clipped surrogate objective（负值，用于梯度下降）。给定 ratio 张量（batch,）、advantages 张量（batch,）和 clip epsilon，先计算每个样本的 surrogate = min(ratio * adv, clip(ratio, 1-eps, 1+eps) * adv)，再返回负均值，使最小化输出能够改善策略。必须使用张量运算并保持可微。$zh$, $zh$ratio 和 adv 是长度为 1 到 8 且形状相同的一维 float32 张量。$zh$),
+    ('ppo-clipped-objective-torch', $zh$PPO Clipped Objective$zh$, $zh$实现 PPO 的 clipped surrogate objective（负值，用于梯度下降）。给定 ratio 张量（batch,）、advantages 张量（batch,）和 clip epsilon，先计算每个样本的 surrogate = min(ratio * adv, clip(ratio, 1-eps, 1+eps) * adv)，再返回负均值，使最小化输出能够改善策略。必须使用张量运算并保持可微。$zh$, $zh$ratio 和 adv 是长度为 1 到 8 且形状相同的一维 float32 张量。$zh$),
     ('grpo-group-advantage', $zh$GRPO Group Advantage$zh$, $zh$为 GRPO 将一组 reward score 归一化为 advantage。给定一组 scores，减去组均值，再除以总体标准差（均方偏差的平方根），并将每个 advantage 四舍五入到小数点后 6 位。如果标准差为零，则返回全零列表。$zh$, $zh$scores 是非空浮点数列表。$zh$),
     ('approximate-kl-penalty', $zh$Approximate KL Penalty$zh$, $zh$使用新策略与参考策略的 log-probability 列表估计 KL divergence。采用公式 kl = mean(exp(logq - logp) * ((logq - logp) - 1) + 1)。这是 RLHF/GRPO 中常用的、有偏但低方差的策略漂移惩罚估计量。返回标量，并四舍五入到小数点后 6 位。$zh$, $zh$logp 和 logq 是长度相同且包含有限浮点数的列表。$zh$),
     ('euler-to-quaternion', $zh$Euler Angles 转 Quaternion$zh$, $zh$将 roll-pitch-yaw（ZYX intrinsic）欧拉角三元组转换为单位四元数（w, x, y, z）。使用标准半角公式，其中 c*/s* 分别表示半角的 cos/sin：w = cr*cp*cy + sr*sp*sy，x = sr*cp*cy - cr*sp*sy，y = cr*sp*cy + sr*cp*sy，z = cr*cp*sy - sr*sp*cy。输入为 3 维张量，返回 4 维张量。$zh$, $zh$euler 是形状为（3,）且单位为弧度的 float32 张量。$zh$),
