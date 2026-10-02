@@ -10,7 +10,7 @@
 
 ## 最新动态
 
-- **2026-09 · V1.0.0 正式发布 + 题库三连更（Knowledge 10 → 79 题，Coding +26 题）**：9 月 2 日 V1.0.0 上线面试经历、Knowledge、Coding（53 题与 PyTorch ML 判题）、公司情报与完整内容审核管线。Knowledge 题库随后整理自三份高频题源，题干保留原文措辞，每题配要点式标准答案与面试深挖答案，与已有题库重复的 13 题按去重规范剔除，新增 13 个主题（π 系列、Flow Matching、Action Chunking、动作 Tokenization、参数高效微调、分布式训练、对齐、模仿学习、Sim2Real、评测与基准、SAC、DQN、奖励设计）：① 24 道「π 系列论文」题，整理自 bo233 具身智能面经《π 论文篇》（[知乎原文](https://zhuanlan.zhihu.com/p/2081126347766875774)），覆盖 π0 架构与 Flow Matching 动作专家、π0.5 开放世界泛化、π\*0.6 的 ReCAP 后训练、π0.7 组合泛化、RLT 在线 RL 与 π-FAST 动作 Tokenization（DCT+BPE）；② 19 道「大模型八股 + 具身高频」题，整理自小红书高频卡片集，覆盖 √dk 缩放、MHA/GQA、BN/LN/RMSNorm、LoRA、分布式并行、显存优化、推理加速、对齐方法、LLM 评测，以及 ACT、DAgger、LeRobot 格式、UMI、数据增强、奖励设计、实时控制、Sim2Real 部署与具身评测基准；③ 26 道「具身 RL 后训练」题，整理自 bo233 面经系列第二篇《强化学习为什么容易被问挂》（[公众号转载](https://mp.weixin.qq.com/s/aYwVgSD1GXZM1J3UPObVYA)），覆盖训练范式与数据配比（预训练/SFT/GRPO 流程、IL 转 RL 时机、在线 vs 离线 RL、失败轨迹用途）、奖励设计与优势归因（冲突定位、稀疏奖励与塑形、长度偏置、末端碰撞信用分配、势函数塑形保最优）、PPO/GRPO 稳定性（零优势退化组、ratio clip 梯度、token log-prob 与重要性采样、GAE）、闭环 rollout 与评测、以及 SAC/DQN（最大熵目标、重参数化、双 Critic、Double DQN、target 网络）。Coding 题库同月新增 26 道「LLM 核心算子」：覆盖从零手写 PyTorch 的常考主题——基础算子（ReLU / GELU / 交叉熵 / BatchNorm / Conv2d…）、注意力变体（GQA、滑窗、线性注意力、Flash Attention 数值版）、架构模块（LoRA、ViT Patch Embedding、GPT-2 Block、MoE）与训练解码（Adam、梯度裁剪、Beam Search、Top-p、BPE、INT8 量化、DPO 损失），全中文题面，140 个测试用例全部经真实判题器验证，配套新题单并上线批量出题工作流（题源定义 → 期望值自动生成 → 判题器校验）。
+- **2026-09 · V1.0.0 正式发布 + 题库三连更（Knowledge 10 → 79 题，Coding +26 题）**：V1.0.0 上线面经、Knowledge、Coding、公司情报与完整审核管线；当月 Knowledge 题库自 π 系列面经、大模型八股与具身 RL 后训练三份高频题源新增 69 题（每题配标准答案与深挖答案），Coding 题库新增 26 道「LLM 核心算子」手写 PyTorch 题，分题明细见 [CHANGELOG.md](./CHANGELOG.md)。
 
 完整更新历史见 [CHANGELOG.md](./CHANGELOG.md)。
 
