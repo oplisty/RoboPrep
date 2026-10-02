@@ -72,12 +72,20 @@ export function SignInForm({ nextUrl = "/" }: { nextUrl?: string }) {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="signin-password"
-          className="text-ink-secondary text-[0.8125rem] font-medium"
-        >
-          密码
-        </label>
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="signin-password"
+            className="text-ink-secondary text-[0.8125rem] font-medium"
+          >
+            密码
+          </label>
+          <Link
+            href="/forgot-password"
+            className="text-accent text-[0.8125rem] font-medium hover:underline"
+          >
+            忘记密码？
+          </Link>
+        </div>
         <Input
           id="signin-password"
           name="password"
