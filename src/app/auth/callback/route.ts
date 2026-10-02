@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       target.pathname = next;
+      // Surface the confirmation so users see that their email was verified —
+      // the homepage renders a banner when this flag is present.
+      target.searchParams.set("confirmed", "1");
       return NextResponse.redirect(target);
     }
   }

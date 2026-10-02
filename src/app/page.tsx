@@ -35,11 +35,16 @@ const pillars = [
   },
 ];
 
-export default async function HomePage() {
-  const [interviews, topics, questions] = await Promise.all([
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ confirmed?: string }>;
+}) {
+  const [interviews, topics, questions, { confirmed }] = await Promise.all([
     getPublishedInterviews(3),
     getTopics(),
     getRecentQuestions(4),
+    searchParams,
   ]);
 
   const rootTopics = topics.filter((topic) => topic.parent_id === null);
@@ -60,6 +65,14 @@ export default async function HomePage() {
           <p className="text-ink-secondary max-w-xl text-[1.0625rem] leading-relaxed">
             真实面试经历、核心知识与 Coding 练习，助你准备具身智能岗位。
           </p>
+          {confirmed === "1" ? (
+            <p
+              role="status"
+              className="border-success/30 bg-success/10 text-success-ink rounded-lg border px-4 py-2 text-sm"
+            >
+              ✅ 邮箱确认成功，已自动登录，开始练习吧！
+            </p>
+          ) : null}
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Link href="/knowledge" className={buttonVariants({ size: "lg" })}>
               开始练习

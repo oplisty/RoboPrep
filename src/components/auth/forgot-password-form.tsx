@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
-import { env } from "@/lib/env";
 
 /** Week 8 Task 42: request a password-reset email. */
 export function ForgotPasswordForm() {
@@ -19,7 +18,10 @@ export function ForgotPasswordForm() {
     setPending(true);
     const supabase = createClient();
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+      // Return users to whichever domain they started on — the site serves
+      // several (scut.dog / roboprep.dpdns.org / robo-prep.vercel.app) and
+      // Supabase session cookies are host-scoped.
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     // Always show the sent state — never reveal whether the account exists.
     setSent(true);

@@ -8,7 +8,6 @@ import { Loader2, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
-import { env } from "@/lib/env";
 import { fieldErrors, readableAuthError, signUpSchema } from "@/lib/validation/auth";
 
 export function SignUpForm({ nextUrl = "/" }: { nextUrl?: string }) {
@@ -45,7 +44,7 @@ export function SignUpForm({ nextUrl = "/" }: { nextUrl?: string }) {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
-        emailRedirectTo: `${env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
         data: {
           display_name: parsed.data.displayName || undefined,
         },
