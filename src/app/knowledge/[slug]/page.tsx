@@ -14,6 +14,8 @@ import {
   getRelatedQuestions,
 } from "@/lib/knowledge/queries";
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS } from "@/lib/knowledge/constants";
+import { renderMathHtml } from "@/lib/math-text";
+import "katex/dist/katex.min.css";
 
 export async function generateMetadata({
   params,
@@ -75,9 +77,10 @@ export default async function KnowledgeQuestionPage({
             {question.title}
           </h1>
           {question.summary ? (
-            <p className="text-ink-secondary max-w-2xl text-base leading-relaxed">
-              {question.summary}
-            </p>
+            <p
+              className="text-ink-secondary max-w-2xl text-base leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: renderMathHtml(question.summary) }}
+            />
           ) : null}
           <ul className="flex flex-wrap gap-2">
             {question.topics.map((topic) => (
@@ -144,8 +147,8 @@ function AnswerSection({
         {title}
       </h2>
       <div className="text-ink-secondary flex flex-col gap-4 text-[0.9375rem] leading-7">
-        {content.split(/\n{2,}/).map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
+        {content.split(/\n{2,}/).map((paragraph, index) => (
+          <p key={index} dangerouslySetInnerHTML={{ __html: renderMathHtml(paragraph) }} />
         ))}
       </div>
     </section>
@@ -167,8 +170,8 @@ function ListSection({
         {title}
       </h2>
       <ul className="text-ink-secondary flex list-disc flex-col gap-2 pl-5 text-[0.9375rem] leading-7">
-        {items.map((item) => (
-          <li key={item}>{item}</li>
+        {items.map((item, index) => (
+          <li key={index} dangerouslySetInnerHTML={{ __html: renderMathHtml(item) }} />
         ))}
       </ul>
     </section>

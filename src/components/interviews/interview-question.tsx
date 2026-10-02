@@ -3,6 +3,7 @@ import { ArrowUpRight, Link2Off } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { displayEnum } from "@/lib/interviews/helpers";
+import { renderMathHtml } from "@/lib/math-text";
 import type { InterviewQuestionOccurrence } from "@/types/interview";
 
 export function InterviewQuestion({
@@ -77,9 +78,10 @@ export function InterviewQuestion({
           )}
         </div>
         {question.answerSummary ? (
-          <p className="text-ink-secondary mt-3 text-sm leading-relaxed">
-            {question.answerSummary}
-          </p>
+          <p
+            className="text-ink-secondary mt-3 text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: renderMathHtml(question.answerSummary) }}
+          />
         ) : null}
       </div>
     </article>
