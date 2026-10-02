@@ -2,6 +2,8 @@
 
 面向 Embodied AI / Robot Learning 岗位的开源面试准备平台：收集真实面试经验，整理知识题与 coding 题，并按公司、岗位、轮次和主题提供检索。
 
+**在线访问：<https://roboprep.dpdns.org>**（备用：<https://robo-prep.vercel.app>）
+
 这个项目依靠社区持续更新。欢迎把自己愿意公开的面试经历通过 Pull Request（PR）提交进来；维护者会审核、合并，再导入站点并人工发布。
 
 > 只想贡献面试经验？直接跳到[通过 PR 提交面试经验](#通过-pr-提交面试经验)。
