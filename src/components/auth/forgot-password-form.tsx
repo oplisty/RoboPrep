@@ -18,10 +18,12 @@ export function ForgotPasswordForm() {
     setPending(true);
     const supabase = createClient();
     await supabase.auth.resetPasswordForEmail(email, {
-      // Return users to whichever domain they started on — the site serves
-      // several (scut.dog / roboprep.dpdns.org / robo-prep.vercel.app) and
-      // Supabase session cookies are host-scoped.
-      redirectTo: `${window.location.origin}/reset-password`,
+      // Route through /auth/callback so the emailed ?code= is exchanged for a
+      // session first — landing on /reset-password directly has no session and
+      // just bounces to /sign-in. Return users to whichever domain they
+      // started on: the site serves several (scut.dog / roboprep.dpdns.org /
+      // robo-prep.vercel.app) and Supabase session cookies are host-scoped.
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
     });
     // Always show the sent state — never reveal whether the account exists.
     setSent(true);
