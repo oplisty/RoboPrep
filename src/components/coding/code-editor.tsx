@@ -1,8 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { loader } from "@monaco-editor/react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+
+// The default loader pulls Monaco from cdn.jsdelivr.net, which the site CSP
+// (script-src 'self') blocks — the editor never mounted in production. Serve
+// the pinned monaco-editor runtime same-origin from public/monaco instead
+// (populated by scripts/copy_monaco.py).
+loader.config({ paths: { vs: "/monaco/vs" } });
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
