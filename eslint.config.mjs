@@ -25,6 +25,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored runtime assets (monaco-editor self-host, see scripts/copy_monaco.py)
+    // and other static files under public/ are not project source.
+    "public/**",
   ]),
 ]);
 

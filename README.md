@@ -343,4 +343,4 @@ docs/                      # 架构、隐私、部署和运维文档
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=oplisty/RoboPrep,WinstonJQ/embodied-interview-qa&type=Date)](https://www.star-history.com/#oplisty/RoboPrep&WinstonJQ/embodied-interview-qa&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=oplisty/RoboPrep&type=Date)](https://www.star-history.com/#oplisty/RoboPrep&Date)
