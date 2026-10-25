@@ -88,8 +88,41 @@ function renderMath(segment: string): string {
   }
 }
 
+/** KaTeX-render text that is already LaTeX (between $…$ delimiters). */
+function renderLatex(expr: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(expr, {
+      throwOnError: false,
+      strict: "ignore",
+      output: "html",
+      displayMode,
+    });
+  } catch {
+    return escapeHtml(expr);
+  }
+}
+
+/** Explicit `$…$` / `$$…$$` spans authored as real LaTeX (question-bank imports).
+ * Inline spans follow the pandoc rule: no space just after the opening `$` or
+ * just before the closing `$`, so currency text like "$5 与 $10" stays literal. */
+const DOLLAR_MATH = /\$\$([\s\S]+?)\$\$|\$(?!\s)((?:[^$\n]*[^\s$])?)\$/g;
+
 /** Convert an answer paragraph into HTML with inline KaTeX for math runs. */
 export function renderMathHtml(text: string): string {
+  let html = "";
+  let cursor = 0;
+  for (const match of text.matchAll(DOLLAR_MATH)) {
+    html += renderPlainRuns(text.slice(cursor, match.index));
+    const display = match[1] !== undefined;
+    html += renderLatex((display ? match[1] : match[2]).trim(), display);
+    cursor = match.index + match[0].length;
+  }
+  html += renderPlainRuns(text.slice(cursor));
+  return html;
+}
+
+/** The conservative CJK/text heuristic for runs outside explicit math spans. */
+function renderPlainRuns(text: string): string {
   let html = "";
   for (const match of text.matchAll(CJK_SPLIT)) {
     const [raw, cjk, rest] = match;

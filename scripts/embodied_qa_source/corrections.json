@@ -1,0 +1,23 @@
+[
+  {
+    "slug": "eaq-v01-q37",
+    "reason": "D-H 约定归属写反：Craig 是改进 D-H（MDH）的代表，Spong 用标准 D-H",
+    "patches": [
+      {"field": "canonical_answer", "old": "**两种约定**：标准 D-H（Craig） vs 改进 D-H（MDH / Spong）参数定义顺序略有不同，拿到参数表必须确认约定。", "new": "**两种约定**：标准 D-H（Denavit-Hartenberg 原始约定，Spong 教材沿用） vs 改进 D-H（MDH / Craig）参数定义顺序略有不同，拿到参数表必须确认约定。"}
+    ]
+  },
+  {
+    "slug": "eaq-v01-q08",
+    "reason": "RoPE「天然外推」说法过强：直接外推会退化，需要位置插值/NTK/YaRN 等扩展",
+    "patches": [
+      {"field": "canonical_answer", "old": "| RoPE（LLaMA / VLA） | 旋转矩阵编码**相对**位置 | 天然外推、相对位置敏感，目前 LLM 主流 |", "new": "| RoPE（LLaMA / VLA） | 旋转矩阵编码**相对**位置 | 相对位置敏感，目前 LLM 主流；直接外推会退化，需位置插值/NTK/YaRN 扩展 |"}
+    ]
+  },
+  {
+    "slug": "eaq-v02-q24",
+    "reason": "IQL expectile τ 写死 0.9 不准：官方实现 D4RL 默认 0.7，不同任务 0.7-0.9",
+    "patches": [
+      {"field": "canonical_answer", "old": "1. **V(s)**：expectile 回归（τ≈0.9）近似最优 V 值，完全在数据动作上计算；", "new": "1. **V(s)**：expectile 回归（τ 常取 0.7-0.9，官方 D4RL 默认 0.7）近似最优 V 值，完全在数据动作上计算；"}
+    ]
+  }
+]

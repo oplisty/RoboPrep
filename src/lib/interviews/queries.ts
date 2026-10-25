@@ -440,6 +440,7 @@ async function getCanonicalQuestionSummaries(
       topics: topicsByQuestion.get(row.id) ?? [],
       estimatedMinutes: row.estimated_minutes,
       isFeatured: row.is_featured,
+      sourceFreq: row.source_freq ?? null,
       stats: {
         interviewCount: row.interview_count ?? 0,
         companyCount: row.company_count ?? 0,

@@ -10,6 +10,8 @@
 
 ## 最新动态
 
+- **2026-10 · Knowledge 四连更（79 → 491 题）**：全量导入开源题库 [WinstonJQ/embodied-interview-qa](https://github.com/WinstonJQ/embodied-interview-qa)（MIT）：九卷 445 条中 33 条与现有题重复，跳过重复并将源答案要点融合进 24 个现有题，净增 412 题（含 84 道手撕、30 道 LeetCode、10 道系统设计、8 道前沿研究题），并新增 🔥 外部面经频次标记与题源署名，分题明细见 [CHANGELOG.md](./CHANGELOG.md)。
+
 - **2026-09 · V1.0.0 正式发布 + 题库三连更（Knowledge 10 → 79 题，Coding +26 题）**：V1.0.0 上线面经、Knowledge、Coding、公司情报与完整审核管线；当月 Knowledge 题库自 π 系列面经、大模型八股与具身 RL 后训练三份高频题源新增 69 题（每题配标准答案与深挖答案），Coding 题库新增 26 道「LLM 核心算子」手写 PyTorch 题，分题明细见 [CHANGELOG.md](./CHANGELOG.md)。
 
 完整更新历史见 [CHANGELOG.md](./CHANGELOG.md)。
@@ -67,6 +69,7 @@ supabase db push 会按顺序执行 supabase/migrations/ 中的迁移。不要�
 
 - supabase/seed_week5_function_problems.sql：33 道 function/class 结构化题
 - supabase/seed_torchcode_problems.sql：26 道「LLM 核心算子」题（改写自已获授权的 [TorchCode](https://github.com/duoan/TorchCode) 题集），从零手写 PyTorch 算子、注意力变体与架构模块
+- supabase/seed_embodied_interview_qa.sql：412 道 Knowledge 题全量导入自 [WinstonJQ/embodied-interview-qa](https://github.com/WinstonJQ/embodied-interview-qa)（MIT），另含 10 个新 topic、586 条题目-主题关联，以及 24 条「重复题答案融合」UPDATE（依赖迁移 0025 的 `source_freq` / `source_meta` 列）；由 `scripts/generate_embodied_qa_seed.py` 生成，勿手改
 
 ### 3. 在 Vercel 导入仓库
 

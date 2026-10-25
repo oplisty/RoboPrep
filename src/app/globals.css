@@ -102,3 +102,33 @@
   background-color: rgba(255, 255, 255, 0.72);
   backdrop-filter: saturate(180%) blur(12px);
 }
+
+/* Imported question-bank answer blocks (code / tables / lists). */
+.answer-code {
+  @apply bg-surface-muted overflow-x-auto rounded-lg p-4 text-[0.8125rem] leading-6;
+}
+
+.answer-table-wrap {
+  @apply overflow-x-auto;
+}
+
+.answer-table {
+  @apply border-line w-full border-collapse text-left text-[0.875rem];
+}
+
+.answer-table th,
+.answer-table td {
+  @apply border-line border px-3 py-1.5 align-top;
+}
+
+.answer-table th {
+  @apply bg-surface-muted font-medium;
+}
+
+.answer-list {
+  @apply list-disc space-y-1 pl-5;
+}
+
+ol.answer-list {
+  list-style: decimal;
+}

@@ -18,7 +18,10 @@ import {
 } from "@/lib/knowledge/constants";
 import { filtersToQueryString, parseKnowledgeFilters } from "@/lib/knowledge/filters";
 import { getKnowledgeQuestions, getKnowledgeTopics } from "@/lib/knowledge/queries";
+import { renderInlineHtml } from "@/lib/answer-markdown";
 import type { KnowledgeFilterParams } from "@/lib/knowledge/filters";
+
+import "katex/dist/katex.min.css";
 
 export const metadata: Metadata = {
   title: "知识库",
@@ -102,14 +105,24 @@ export default async function KnowledgePage({
                               {DIFFICULTY_LABELS[question.difficulty]}
                             </Badge>
                           ) : null}
+                          {question.sourceFreq != null && question.sourceFreq > 0 ? (
+                            <Badge
+                              variant="default"
+                              className="bg-warning/15 text-warning-ink"
+                              title={`在 ${question.sourceFreq} 份独立公开面经中出现过（外部题库统计口径）`}
+                            >
+                              🔥×{question.sourceFreq}
+                            </Badge>
+                          ) : null}
                         </div>
                         <CardTitle className="mt-2">{question.title}</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-4">
                         {question.summary ? (
-                          <p className="text-ink-secondary line-clamp-3 text-sm leading-relaxed">
-                            {question.summary}
-                          </p>
+                          <p
+                            className="text-ink-secondary line-clamp-3 text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: renderInlineHtml(question.summary) }}
+                          />
                         ) : null}
                         {question.topics.length > 0 ? (
                           <ul className="flex flex-wrap gap-2">

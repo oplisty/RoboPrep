@@ -406,6 +406,10 @@ export type Question = {
   is_featured: boolean;
   is_published: boolean;
   view_count: number;
+  /** Appearances across independent public interview reports per the imported external bank (🔥×N); null = unknown. */
+  source_freq: number | null;
+  /** Provenance of an imported/enriched entry: repo, commit, license, volume/section/qid, merge notes. */
+  source_meta: Json | null;
   created_at: string;
   updated_at: string;
 };

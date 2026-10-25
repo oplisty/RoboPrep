@@ -1,0 +1,585 @@
+==========================================================================================
+NEW eaq-v01-q01  [knowledge/easy/freq=18]  Transformer Self-Attention 的计算流程是什么？复杂度是多少？
+NEW-ANSWER:
+输入序列 $X \in \mathbb{R}^{n \times d}$ 分别乘三个权重矩阵得到 $Q, K, V$，然后计算：
+
+$$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V$$
+
+步骤：① 线性投影得 $Q, K, V$；② 计算相似度矩阵 $QK^\top$（$n \times n$）并除以 $\sqrt{d_k}$ 缩放；③ softmax 归一化；④ 加权求和 $V$。
+
+**复杂度**：时间 $O(n^2 d)$，空间 $O(n^2)$（注意力矩阵是瓶颈），序列长时计算量爆炸。多头注意力是 $h$ 个小头并行，总参数量不变。
+NEW-MISTAKES: 除以 $\sqrt{d_k}$ 不是"随便加的"——防止点积过大导致 softmax 梯度消失 | 去掉 scale 训练会明显变差。
+------------------------------------------------------------
+EXISTING why-scaled-dot-product-attention-divides-by-sqrt-dk  id=000000000035  请推导并解释 Self-Attention 的计算过程，为什么要除以 √dk？
+EXISTING-CANONICAL:
+Self-Attention 先由输入 X 得到 Q = XW_Q、K = XW_K、V = XW_V，再计算 Attention(Q,K,V) = softmax(QK^T / √dk) V：每个 query 与所有 key 做点积得分数，缩放后 softmax 成权重，对 value 加权求和。除以 √dk 的原因是：若 q、k 的分量均值 0 方差 1，则点积 q·k 的方差为 dk，维度越大分数越尖锐，softmax 会趋近 one-hot，梯度趋近于零；除以 √dk 把点积方差拉回约 1，保证 softmax 处于有梯度的区间。
+EXISTING-DEEP:
+追问延伸：多头场景下 dk = d_model / h，缩放因子随头维度自动调整；softmax 饱和解释是标准答案，可以补充「分数分布过尖 → one-hot → 梯度消失」这条链。还可以提到替代方案（对 logits 做 layernorm、可学习温度）以及 FlashAttention 并不改变这个缩放、只是改变计算顺序。
+
+==========================================================================================
+NEW eaq-v01-q03  [knowledge/easy/freq=14]  BatchNorm 和 LayerNorm 的区别？Transformer 为什么用 LayerNorm？
+NEW-ANSWER:
+- **BatchNorm（BN）**：沿 batch 维归一化，即对所有样本的同一特征位置计算均值/方差；训练时用 batch 统计量，推理时用 running 均值/方差（全局估计）。**适合 CV/CNN**，batch 大时稳定。
+- **LayerNorm（LN）**：沿特征维（同一样本内所有通道）归一化，每个样本独立计算，**不依赖 batch size**，训练/推理行为一致。
+
+**Transformer 用 LN 的原因**：① 序列长度不等，batch 统计不稳定；② NLP 任务 batch 小时 BN 方差估计噪声大；③ 推理时单条序列（batch=1）BN 退化，LN 完全不受影响。
+NEW-MISTAKES: BN 在推理期用的是训练期积累的 running mean/var，不是当前 batch 统计量 | 小 batch 时 BN 抖动大、LN 更稳。
+------------------------------------------------------------
+EXISTING batchnorm-layernorm-rmsnorm  id=000000000037  Batch Normalization、Layer Normalization 和 RMSNorm 的原理与区别？
+EXISTING-CANONICAL:
+BatchNorm 对每个特征在 batch 维度上计算均值/方差做归一化，训练时维护滑动平均，推理依赖全局统计量。LayerNorm 对每个样本自身在特征维上归一化，不依赖 batch，成为 Transformer 的标准配置（现代模型多用 pre-LN 稳定训练）。RMSNorm 只用均方根做缩放、不减均值，计算更少、效果与 LN 相当，被 LLaMA、Qwen 等主流大模型采用。
+EXISTING-DEEP:
+高频追问包括：为什么 NLP/Transformer 不用 BN——序列长度可变、小 batch 与分布式统计同步困难，且逐 token 的统计不稳定；pre-LN 与 post-LN 的训练稳定性差异；RMSNorm 省掉了均值项为何几乎不掉点（方向信息主要由相对幅度承载）。机器人策略网络中的归一化也遵循同样的权衡。
+
+==========================================================================================
+NEW eaq-v01-q17  [knowledge/medium/freq=5]  KV Cache 是什么？为什么推理时有它、训练时没有？
+NEW-ANSWER:
+**KV Cache**：自回归解码时，每步新增 1 个 token，其 $K, V$ 投影结果被缓存；后续步骤直接复用，消除对已生成前缀的重复 K/V 投影计算。
+
+**为什么推理有、训练无**：训练用 Teacher Forcing 并行前向（整条序列一次性算），无逐步生成场景，历史 K/V 无需复用。推理逐步自回归，历史固定可缓存。
+
+**代价**：KV Cache 显存随序列长度和层数线性增长（每层每头独立存储），长上下文时成为显存瓶颈 → 引出 MQA / GQA（多 Query 共享少量 KV Head）。
+NEW-MISTAKES: KV Cache 缓存的是 K 和 V，不是 attention 权重 | 每步 attention 仍要 attend 全部历史（计算量正比于前缀长度），消除的是前缀的 K/V 重复投影，不是 attention 计算本身。
+------------------------------------------------------------
+EXISTING why-is-kv-cache-useful  id=000000000002  Why is KV Cache useful?
+EXISTING-CANONICAL:
+Autoregressive decoding recomputes attention over the whole prefix at every step. Naively that is O(n^2) work for a sequence of length n. But the key/value tensors of earlier tokens never change once produced, so they can be cached and reused. Each new token then only needs to compute its own Q, K, V and attend against the cached K/V: O(n) per step instead of O(n^2), at the cost of O(n) extra memory.
+EXISTING-DEEP:
+The cost is memory bandwidth, not FLOPs, once the cache is large: decoding becomes a bandwidth-bound gather over (layers x heads x seq x d_k) tensors. That is why techniques like multi-query attention, grouped-query attention and KV-cache quantisation exist — they shrink the cache rather than the compute. For robots the stakes are concrete: a VLA running at 10-50 Hz on an onboard GPU has a hard latency budget, and if the observation history is long the cache, not the policy, is usually what blows the budget. Practical mitigations are chunked prompts, sliding-window attention over recent frames, and quantising KV to int8.
+
+==========================================================================================
+NEW eaq-v01-q17a  [knowledge/medium/freq=None]  GQA / MQA / MHA 下 KV Cache 的存储差异是什么？
+NEW-ANSWER:
+面试里先把核心说清：KV Cache 缓存的是每一层历史 token 的 $K$ 和 $V$，不是 attention 权重。MHA、MQA、GQA 的差异来自"多少个 query head 共享一组 K/V head"。
+
+- **MHA**：每个 query head 都有自己的 K/V head，$H_{kv}=H$，cache 最大，表达最完整。
+- **MQA**：所有 query head 共享一组 K/V，$H_{kv}=1$，cache 最省，但可能损失一些表示能力。
+- **GQA**：把 $H$ 个 query head 分成 $G$ 组，每组共享一组 K/V，$H_{kv}=G$，在效果和显存之间折中。
+
+粗略显存可写成：$2 \times B \times N_{\text{layer}} \times T \times H_{kv} \times d_{\text{head}} \times \text{bytes}$，其中 2 对应 K/V 两份。GQA/MQA 降低的是 K/V 投影和 cache 存储，不会减少注意力要看的历史长度。
+NEW-MISTAKES: GQA 不是稀疏注意力，也不会把上下文长度变短 | 它主要解决长上下文推理时 KV Cache 太占显存的问题。
+------------------------------------------------------------
+EXISTING mha-vs-gqa  id=000000000036  MHA 和 GQA 的区别是什么？各自的优缺点？
+EXISTING-CANONICAL:
+Multi-Head Attention 中每个注意力头都有独立的 Q、K、V 投影；Grouped-Query Attention 中多个 query 头共享同一组 K/V 头（每组 G 个 query 头对应 1 个 KV 头），Multi-Query Attention 是 G=所有 query 共享 1 个 KV 头的极端情形。GQA 把 KV Cache 体积和解码带宽需求缩小约 G 倍，精度损失很小，因此 Llama 2/3、Qwen 等主流大模型都采用。
+EXISTING-DEEP:
+回答框架是「质量 vs KV Cache 容量/带宽」：MHA 质量上限最高、缓存最贵；MQA 缓存最省、质量下降最明显；GQA 是工业界默认折中，且可以从 MHA 权重上变换（mean-pool KV 头）升级得到。具身场景的落点：机载 GPU 上跑 VLA 推理时，KV Cache 常是延迟瓶颈，GQA/量化是第一梯队手段。
+
+==========================================================================================
+NEW eaq-v01-q27  [knowledge/easy/freq=8]  On-policy 和 Off-policy 的区别？各自典型算法是什么？
+NEW-ANSWER:
+- **On-policy**：行为策略 = 目标策略（用来采样的策略就是正在优化的策略）。数据必须来自当前策略，旧数据无效。典型：**PPO, A3C, TRPO, SARSA**。
+- **Off-policy**：行为策略 ≠ 目标策略（可以用其他策略（含过去旧策略）采样的数据来训练）。数据可复用（replay buffer）。典型：**Q-learning, DQN, SAC, TD3, DDPG**。
+
+**权衡**：
+- On-policy 样本效率低（用完即扔），但稳定、收敛保证好；
+- Off-policy 样本效率高（replay buffer 重复用），但需处理重要性采样 / 分布偏移。
+
+**机器人选择**：真机采样贵 → 首选 off-policy（SAC）；仿真大规模可重置 → on-policy（PPO）也可接受；RLHF 微调 LLM/VLA 语言部分常用 PPO；VLA 的动作策略本身更多用 BC/LoRA/flow-matching 等监督学习方式。
+NEW-MISTAKES: PPO 看似可以用旧数据（clip 范围内），但理论上仍是 on-policy（clip 是近似约束，偏离太多就不行） | *PPO 不是 off-policy**。
+------------------------------------------------------------
+EXISTING on-policy-vs-off-policy-data-reuse  id=000000000059  On-policy 与 Off-policy 的核心区别是什么？两者对历史数据的复用方式有何不同，这会怎样影响样本效率？
+EXISTING-CANONICAL:
+区别在「评估哪个策略、数据由谁产生」。On-policy（PPO、GRPO）：优势与梯度按当前策略计算，每次参数更新后旧 rollout 即过期，需大 batch 重采样；ratio + clip 只容忍少量陈旧（跨 mini-batch epoch）。Off-policy（SAC、DQN、TD3）：replay buffer 存历史经验反复采样，行为策略可与目标策略不同——值方法靠 Bellman 目标天然 off-policy，策略梯度则需重要性采样校正。样本效率：off-policy 复用经验、每次真机交互被多次学习，适合采样昂贵的场景，代价是自举带来的过估计与不稳定；on-policy 数据一次性消耗、样本效率低，但梯度无偏易稳、天然适配大规模并行仿真 rollout。
+EXISTING-DEEP:
+边界情形是常见追问：PPO 在同一 batch 上跑多个 epoch 还算不算 on-policy——ratio+clip 正是在处理这种「轻度 off-policy」；off-policy 策略梯度的序列级重要性权重连乘导致方差爆炸，所以 SAC 改走「最大 Q 的 pathwise 梯度」。能从「数据分布由谁控制」一句话讲透本质，再落到真机选 SAC 类、仿真选 PPO 类的工程结论即可。
+
+==========================================================================================
+NEW eaq-v01-q29  [knowledge/medium/freq=8]  稀疏奖励（Sparse Reward）有什么问题？有哪些缓解方法？
+NEW-ANSWER:
+**问题**：大多数时候奖励为 0，随机策略极难偶然达到目标 → 梯度几乎全是 0 → 训练无信号，无法学习。
+
+**缓解方法**：
+1. **Reward Shaping**：人工设计中间奖励（接近目标、减少距离等），但需领域知识且可能引入错误最优化
+2. **HER（Hindsight Experience Replay）**：把失败轨迹的实际到达状态当作"新目标"，重新标注为成功，生成大量正样本 — **off-policy 机器人任务最常用**
+3. **课程学习（Curriculum）**：从易到难逐步增加任务难度，确保早期能获得正奖励
+4. **探索增强**：RND（随机网络蒸馏）/ Intrinsic Curiosity Module，用"新奇性"作内在奖励鼓励探索未访问状态
+5. **模仿学习预热**：先用 BC（专家演示）学会基础行为再 RL 精调
+NEW-MISTAKES: Reward Shaping 若与真实目标不对齐，会导致策略学会"刷虚假奖励"而非完成任务（reward hacking）。
+------------------------------------------------------------
+EXISTING sparse-reward-difficulties-and-shaping-validation  id=000000000061  只有到达目标或完成任务时才获得奖励，可能给探索和学习带来哪些困难？如何进行奖励塑形，并验证它是否有效？
+EXISTING-CANONICAL:
+困难有三：随机探索命中奖励的概率随任务步数指数衰减，早期几乎无学习信号；终局奖励对长轨迹的信用分配方差大、收敛慢；成败在奖励上不可分时 value 难以拟合。塑形手段按监督密度递增：势函数塑形 F = γΦ(s′) − Φ(s)（以距离、子任务进度为 Φ，理论上不改最优策略）；课程奖励（先松容差后收紧、先短任务后长任务）；学习型奖励（成败分类器、视觉 reward model、时间一致性自举）；示范引导（从示范末段状态回放起步缩小探索范围）。验证有效性：与稀疏基线对比采样效率和最终成功率——塑形应提高前者而不降低后者；检查是否出现塑形捷径（hacking）；对 Φ 或权重做敏感性分析，指标对塑形细节不敏感才说明学的是任务本身。
+EXISTING-DEEP:
+高分结构：先解释困难为什么是指数级的，再说每种塑形各解决哪个困难，最后强调验证与 hacking 风险。势函数保最优的前提可以引到另一题展开；课程奖励与学习型奖励理论上会改变最优策略，所以验收必须回到原始稀疏指标——「塑形是脚手架、验收看毛坯」这个比喻好用。
+
+==========================================================================================
+NEW eaq-v01-q31  [knowledge/medium/freq=6]  PPO 的 Clip 机制是什么？为什么比 TRPO 更实用？
+NEW-ANSWER:
+$L^{CLIP} = \mathbb{E}_t[\min(r_t \hat{A}_t,\ \text{clip}(r_t, 1\!-\!\epsilon, 1\!+\!\epsilon)\hat{A}_t)]$，其中 $r_t = \pi_\theta(a_t|s_t)/\pi_{\theta_{old}}(a_t|s_t)$，$\epsilon \approx 0.1$-$0.2$。
+
+**直觉**：$\hat{A}_t > 0$（好动作）时增大 $r_t$，但截到 $1+\epsilon$；$\hat{A}_t < 0$ 时减小 $r_t$，但截到 $1-\epsilon$。防止更新幅度过大，新旧策略保持接近。
+
+**关键对比**：
+- **TRPO**：KL 散度硬约束 + 共轭梯度二阶优化，理论严格但计算复杂；
+- **PPO**：clip 是软约束，一阶梯度即可，实现简单，是 RLHF 偏好对齐的工程主流；VLA 动作策略本身更多用 BC/flow-matching 监督学习。
+NEW-MISTAKES: PPO 不保证真正的 trust region（多次 mini-epoch 后 $r_t$ 可能超出 clip 范围） | clip 是启发式，不是严格约束。
+(no existing target — intra-import dup, handled by sibling new question)
+
+==========================================================================================
+NEW eaq-v01-q32  [knowledge/medium/freq=6]  SAC（Soft Actor-Critic）的最大熵框架是什么？为什么它在机器人真机训练中更受青睐？
+NEW-ANSWER:
+**最大熵 RL**：目标从最大化期望 return 改为同时最大化期望 return 和策略熵：
+
+$$J(\pi) = \mathbb{E}\left[\sum_t \gamma^t (r_t + \alpha \mathcal{H}(\pi(\cdot \mid s_t)))\right]$$
+
+$\alpha$ 为温度参数（自动调整），$\mathcal{H}$ 为策略熵。
+
+**好处**：① **探索内化**：高熵策略自然探索多种动作，不易陷入局部最优；② **鲁棒性**：同时优化多种良策略，对环境扰动（真机噪声）更鲁棒；③ **off-policy + replay buffer**：样本效率高，真机数据贵时可多次复用。
+
+**自动温度**：$\alpha$ 自动调节让熵约束在目标熵附近，无需手调——这是 SAC 工程上比 TD3 友好的关键。
+NEW-MISTAKES: SAC 的"soft"是指软 Q-learning（熵正则化），不是"软"更新（虽然 SAC 也用软更新 target network） | 两个概念不同。
+------------------------------------------------------------
+EXISTING sac-maximum-entropy-objective-and-loss-signs  id=000000000074  SAC的最大熵目标是什么？Actor与Critic如何更新？若写作最小化的loss，Q值项和熵项的符号如何确定？
+EXISTING-CANONICAL:
+目标：max_π E[Σ γ^t (r_t + α·H(π(·|s_t)))]，α 为温度（可自动调节：对 α 求约束目标熵的损失）。Critic：双网络回归软 TD 目标 y = r + γ(min_j Q̄_j(s′, ã′) − α log π(ã′|s′))，其中 ã′ ~ π(·|s′)——注意 target 里熵项是减号（软值 = Q − α log π），损失 L_Q = (Q_j(s,a) − y)²。Actor：从 max E[min_j Q_j(s,ã) − α log π(ã|s)] 改写成最小化 L_π = E[α log π(ã|s) − min_j Q_j(s,ã)]——这就是符号考点：最大化 Q 加 α 倍熵，翻成最小化后 Q 项带负号、熵的对数概率项带正号。动作用 tanh 高斯重参数化采样，log-prob 需加 tanh 修正 −Σ log(1 − tanh(u)²)。
+EXISTING-DEEP:
+符号题的解法是记推导路径而不是记结论：从软 Bellman 一致性 V(s) = E[Q(s,a) − α log π(a|s)] 出发，actor 目标就是把软值推高。追问常落在：α 自动温度调节（目标熵常设为 −dim(A)）；α 过小退化为普通 AC、过大则熵僵持；以及 tanh 边界 log-prob 的数值稳定性。能现场推出 actor loss 符号转换是硬通货。
+
+==========================================================================================
+NEW eaq-v01-q33  [knowledge/hard/freq=5]  Offline RL 与 Online RL 的核心区别？为什么 Offline RL 有分布偏移问题？
+NEW-ANSWER:
+- **Online RL**：边训练边与环境交互，数据来自当前策略；可以探索、纠错。
+- **Offline RL**：完全从固定数据集（历史演示/日志）中学习，**不与环境交互**；数据集可能来自多种行为策略。
+
+**分布偏移（Distribution Shift）**：学到的策略可能访问数据集中从未出现的 $(s,a)$ 对 → Q 函数对这些 OOD（out-of-distribution）动作的估计极不准确（往往过高，因为神经网络外推不可靠）→ 策略被错误高估的动作引导走错。
+
+**对策**：
+- **CQL（Conservative Q-Learning）**：在 Q 值优化中额外惩罚 OOD 动作的 Q 值，强制保守估计；
+- **IQL（Implicit Q-Learning）**：避免直接对 OOD 动作查 Q，只在数据集内做 expectile 回归；
+- **BC 约束**：限制策略不偏离行为策略太远（与 KL 正则类似）。
+
+**机器人应用**：真机无法探索时（危险/昂贵）必须 offline RL；离线预训练 + 少量在线 fine-tune 是常见组合。
+NEW-MISTAKES: Offline RL 不是"有数据就行"——数据覆盖度和质量极关键 | 覆盖差+高 OOD 比率时 CQL 等方法也会失效。
+------------------------------------------------------------
+EXISTING online-vs-offline-rl-in-post-training  id=000000000056  在线强化学习与离线强化学习在数据获取和策略训练方式上有什么区别？在自动驾驶或机器人后训练中，如何选择或结合使用？
+EXISTING-CANONICAL:
+数据获取：在线 RL 由当前策略持续与环境交互产生新鲜数据，分布随策略更新而移动；离线 RL（BCQ、CQL、IQL、Decision Transformer 等）只在固定数据集上训练，完全不与环境交互。策略训练：在线可以放心 bootstrap 与探索；离线必须抑制分布外动作的值高估——用悲观估计（CQL）、策略约束（BCQ）或免策略提升的回归（IQL）。选型：真机与自驾采样昂贵且有安全风险，以离线为主（含 RECAP 式离线 value + 优势条件化）；仿真成本低且可大规模并行 rollout，适合在线 PPO/GRPO。结合方式：离线预训练 → 仿真在线 → 真机少量在线微调；或「仿真在线训练 + 真机数据离线消费」的混合闭环。
+EXISTING-DEEP:
+及格线是说出本质区别「数据分布是否由当前策略控制」；加分点：解释离线 RL 为什么不能直接套 Q-learning（OOD 动作的过估计经 bootstrap 指数放大）、在线 RL 的样本效率与仿真真实度缺口如何权衡、以及 RECAP/π*0.6 为什么把 RL 重写成离线问题——能按「采样成本 x 安全约束 x 奖励可靠性」给出选型矩阵更佳。
+
+==========================================================================================
+NEW eaq-v01-q44  [knowledge/medium/freq=5]  机器人控制频率（Control Frequency）的要求是什么？VLA 策略频率低有什么影响？
+NEW-ANSWER:
+**基本要求**：控制频率需远高于系统最高频动态（奈奎斯特采样定理），一般：
+- 关节 PD 控制：**1 kHz**（高刚度电机）或 **500 Hz**（标准）
+- 力控 / 阻抗控制：**100-500 Hz**（力传感器带宽）
+- 视觉反馈（闭环）：**30-100 Hz**（摄像头帧率限制）
+
+**VLA 策略频率低的影响**：OpenVLA 在 Franka-Tabletop 约 **5 Hz**（串行 AR 解码 7 token），部分部署平台可达 15 Hz，大部分 VLA 在 5-25 Hz。
+- **安全风险**：高动态任务（抓运动物体、避碰）控制环太慢，实际执行与规划脱节；
+- **Action Chunking**（关键解法）：一次预测 K 步动作（如 K=10/20/50）并缓存，底层控制器以高频插值执行，策略只需低频推理；
+- **π0**：用独立 Action Expert（Flow Matching，H=50 chunk）以约 50 Hz 频率输出动作，VLM 低频提供上下文理解；**GR00T-N1** 类似思路（Flow Matching action chunk），具体控制频率因机器人平台而异。
+NEW-MISTAKES: 控制频率和推理频率是两层：VLA 推理 10 Hz，但底层 PD 控制仍跑 1 kHz | 两层解耦是工程关键。
+------------------------------------------------------------
+EXISTING real-time-control-concepts  id=000000000051  具身智能中的 RTC 相关概念有哪些？（实时控制、延迟、控制频率等）它们对系统性能有什么影响？
+EXISTING-CANONICAL:
+关键概念：控制频率——伺服内环常在 kHz 级，策略外环 10-50Hz；延迟链——感知采集、传输、模型推理、执行各段延迟之和决定响应带宽；抖动——推理时间的方差比均值更伤稳定性，会引发动作衔接毛刺；内外环分工——高频低层（阻抗/位置控制）兜底，低频高层（VLA）出目标轨迹；执行缓冲——动作 chunk 按时间戳回放，配合插值与外推隐藏推理延迟。
+EXISTING-DEEP:
+对性能的影响要落到现象上：延迟过大会震荡和过冲，抖动会造成动作卡顿，chunk 边界处理不当产生频繁顿挫——这正是 π0 用 action extrapolation、ACT 用时间集成的原因。能画出「感知→推理→执行」的延迟预算图并指出瓶颈位置，就是完整答案。
+
+==========================================================================================
+NEW eaq-v02-q01  [knowledge/easy/freq=15]  on-policy 和 off-policy 的区别？各自有哪些代表算法？
+NEW-ANSWER:
+- **on-policy**：用**当前策略** $\pi_\theta$ 收集的数据训练，数据用完即丢；策略每次更新后必须重新采样。代表：REINFORCE / A2C / A3C / **PPO**（严格说 PPO 通过重要性采样做 mini off-policy，但仍属 on-policy 范畴）。
+- **off-policy**：可以用**任意策略**（如旧策略、人类演示）收集的数据训练，借助经验回放重复利用；探索策略与优化策略可分离。代表：Q-learning / DQN / DDPG / **TD3** / **SAC**。
+
+**关键区别**：on-policy 样本效率低但稳定；off-policy 样本效率高但收敛难（Q 值过估计、分布漂移）。
+NEW-MISTAKES: SAC 是 off-policy，PPO 虽然用了重要性采样，但用旧数据的 epoch 数很少（通常 3-10 epoch），学术上仍归 on-policy | 不要说"PPO 是 off-policy"。
+------------------------------------------------------------
+EXISTING on-policy-vs-off-policy-data-reuse  id=000000000059  On-policy 与 Off-policy 的核心区别是什么？两者对历史数据的复用方式有何不同，这会怎样影响样本效率？
+EXISTING-CANONICAL:
+区别在「评估哪个策略、数据由谁产生」。On-policy（PPO、GRPO）：优势与梯度按当前策略计算，每次参数更新后旧 rollout 即过期，需大 batch 重采样；ratio + clip 只容忍少量陈旧（跨 mini-batch epoch）。Off-policy（SAC、DQN、TD3）：replay buffer 存历史经验反复采样，行为策略可与目标策略不同——值方法靠 Bellman 目标天然 off-policy，策略梯度则需重要性采样校正。样本效率：off-policy 复用经验、每次真机交互被多次学习，适合采样昂贵的场景，代价是自举带来的过估计与不稳定；on-policy 数据一次性消耗、样本效率低，但梯度无偏易稳、天然适配大规模并行仿真 rollout。
+EXISTING-DEEP:
+边界情形是常见追问：PPO 在同一 batch 上跑多个 epoch 还算不算 on-policy——ratio+clip 正是在处理这种「轻度 off-policy」；off-policy 策略梯度的序列级重要性权重连乘导致方差爆炸，所以 SAC 改走「最大 Q 的 pathwise 梯度」。能从「数据分布由谁控制」一句话讲透本质，再落到真机选 SAC 类、仿真选 PPO 类的工程结论即可。
+
+==========================================================================================
+NEW eaq-v02-q04  [knowledge/medium/freq=10]  GAE（Generalized Advantage Estimation）是什么？λ 怎么控制 bias-variance 权衡？
+NEW-ANSWER:
+**GAE** 在 MC 高方差 ($\lambda=1$) 与 TD 低方差但有 bias ($\lambda=0$) 之间用指数加权插值：
+
+$$\hat{A}_t^{\text{GAE}(\gamma,\lambda)} = \sum_{l=0}^{\infty}(\gamma\lambda)^l \delta_{t+l}, \quad \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$$
+
+- $\lambda \to 1$：接近 MC，方差大、bias 小；
+- $\lambda \to 0$：接近单步 TD，方差小、bias 大；
+- 实务甜区：**$\lambda \approx 0.95$, $\gamma \approx 0.99$**。
+
+**PPO 与 GAE**：PPO 的策略梯度目标 $\mathbb{E}[\min(r_t\hat{A}_t, \text{clip}(r_t,1\pm\varepsilon)\hat{A}_t)]$ 需要 $\hat{A}_t$，GAE 提供低方差的 $\hat{A}_t$ 估计，是 PPO 稳定收敛的关键。
+NEW-MISTAKES: GAE 不是 PPO 专属，TRPO/A3C 也用 | 但 PPO + GAE 是当前最常见组合。
+------------------------------------------------------------
+EXISTING gae-bias-variance-and-stability  id=000000000069  PPO中的GAE如何估计advantage？它对估计的偏差、方差以及训练稳定性有什么影响？
+EXISTING-CANONICAL:
+δ_t = r_t + γV(s_{t+1}) − V(s_t)，A_GAE(λ)_t = Σ_{k≥0} (γλ)^k δ_{t+k}。λ→1 退化为折扣蒙特卡洛：不依赖 value 的偏差小，但整条轨迹的随机性累积、方差大；λ→0 等价一步 TD：方差小但强依赖 V 的准确性、偏差大。折中的效果是早期信号低方差、远期误差被 (γλ)^k 指数衰减。对训练的影响：方差大迫使小学习率、大 batch、慢收敛；偏差大则策略被不准确的 V 带偏（尤其 value 尚未收敛的早期）。实践：γ≈0.99、λ≈0.95 起步；value 网络质量、value loss 权重与 advantage 归一化都和 λ 的最优值耦合；离线场景（π*0.6）则用时间一致性自举替代在线 GAE 的自举链。
+EXISTING-DEEP:
+及格线：写出 δ 与两个极限并解释单调性。加分点：GAE(λ) 与 TD(λ) 的对应关系；「value 不准的早期 λ 取小、value 收敛后可调大」的动态思路；机器人真机里成功判定噪声（误检漏检）如何放大回报方差、进而影响 λ 选择。能从偏差-方差讲到超参联动是深度信号。
+
+==========================================================================================
+NEW eaq-v02-q14  [knowledge/easy/freq=14]  SAC 是什么？max-entropy 框架的直觉是什么？temperature α 怎么自动调？
+NEW-ANSWER:
+**SAC（Soft Actor-Critic, Haarnoja 2018）**：最大熵 RL 框架下的 off-policy Actor-Critic，目标不是最大化期望回报，而是：
+
+$$J(\pi) = \mathbb{E}\!\left[\sum_t r(s_t, a_t) + \alpha \cdot \mathcal{H}[\pi(\cdot|s_t)]\right]$$
+
+**Max-entropy 直觉**：最大化奖励 + 策略熵 → 策略在等效动作间均匀分布。好处：探索强、多峰奖励自然处理、扰动后鲁棒恢复。
+
+**Temperature α 自动调节**（SAC v2）：设目标熵 $\bar{\mathcal{H}} = -|\mathcal{A}|$，优化 $\min_\alpha \mathbb{E}[-\alpha(\log\pi_\theta + \bar{\mathcal{H}})]$。熵低 → α 升（多探索）；熵高 → α 降（多利用）。初始 α ≈ 0.2，之后自适应。
+NEW-MISTAKES: α 不是"探索率"，是正则权重 | SAC 无 ε-greedy，策略随机性即探索来源 | 自动调 α 远优于手调，不要固定 α。
+------------------------------------------------------------
+EXISTING sac-maximum-entropy-objective-and-loss-signs  id=000000000074  SAC的最大熵目标是什么？Actor与Critic如何更新？若写作最小化的loss，Q值项和熵项的符号如何确定？
+EXISTING-CANONICAL:
+目标：max_π E[Σ γ^t (r_t + α·H(π(·|s_t)))]，α 为温度（可自动调节：对 α 求约束目标熵的损失）。Critic：双网络回归软 TD 目标 y = r + γ(min_j Q̄_j(s′, ã′) − α log π(ã′|s′))，其中 ã′ ~ π(·|s′)——注意 target 里熵项是减号（软值 = Q − α log π），损失 L_Q = (Q_j(s,a) − y)²。Actor：从 max E[min_j Q_j(s,ã) − α log π(ã|s)] 改写成最小化 L_π = E[α log π(ã|s) − min_j Q_j(s,ã)]——这就是符号考点：最大化 Q 加 α 倍熵，翻成最小化后 Q 项带负号、熵的对数概率项带正号。动作用 tanh 高斯重参数化采样，log-prob 需加 tanh 修正 −Σ log(1 − tanh(u)²)。
+EXISTING-DEEP:
+符号题的解法是记推导路径而不是记结论：从软 Bellman 一致性 V(s) = E[Q(s,a) − α log π(a|s)] 出发，actor 目标就是把软值推高。追问常落在：α 自动温度调节（目标熵常设为 −dim(A)）；α 过小退化为普通 AC、过大则熵僵持；以及 tanh 边界 log-prob 的数值稳定性。能现场推出 actor loss 符号转换是硬通货。
+
+==========================================================================================
+NEW eaq-v02-q18  [knowledge/medium/freq=8]  target network 是什么？为什么不直接用当前网络做 TD 目标？
+NEW-ANSWER:
+**Target network**：维护一份主网络的**软拷贝** $\phi'$，用于计算 TD 目标 $y = r + \gamma Q_{\phi'}(s', a')$；通过指数移动平均（EMA）缓慢更新：$\phi' \leftarrow \tau \phi + (1-\tau)\phi'$，通常 $\tau = 0.005$。
+
+**为什么需要**：若 TD 目标用当前网络 $Q_\phi$ 计算，损失为：
+$$L = (Q_\phi(s,a) - (r + \gamma Q_\phi(s',a')))^2$$
+被拟合的目标 $r + \gamma Q_\phi$ **随着 $\phi$ 更新而移动**，形成"追逐运动目标"的循环——网络调一步，目标跟着变，容易发散（"自举问题"）。
+
+**EMA 更新 vs 硬拷贝**：DQN 原版每 C 步硬拷贝；DDPG/TD3/SAC 用 EMA，更平滑、实务更稳定。
+NEW-MISTAKES: $\tau$ 越小目标越稳，但学习越慢 | $\tau = 1$ 等价于没有 target 网络（不稳定）。target 网络不是 Critic 专属，部分算法 Actor 也有 target 网络。
+------------------------------------------------------------
+EXISTING dqn-target-network-slow-update  id=000000000078  DQN为什么要使用缓慢更新的target网络？每步同步会怎样？
+EXISTING-CANONICAL:
+TD 学习的目标 y 依赖网络自身参数，叠加函数逼近与离策略数据构成 deadly triad，天然不稳定。target 网络（参数 θ⁻）把「被回归的对象」冻结：DQN 每 C 步硬拷贝同步，或每步软更新 θ⁻ ← τθ + (1−τ)θ⁻（τ≈0.005，DDPG/SAC 默认）。慢更新近似于把自举在参数空间做了小步长约束——当前网络可以把 value 拟合到接近一个固定目标，再整体挪动锚点，类似 alternating optimization。若每步全量同步（τ=1，无 target）：每次更新立刻改变目标，形成正反馈回路——一步高估被立即 bootstrap 回来、再放大，loss 震荡或发散为系统性过估计；理论上是把监督回归退化成了不动点迭代不保证收敛的自举。注意 target 网络只参与目标计算、不接收梯度；软更新平滑但引入滞后偏差，硬更新有周期跳变。
+EXISTING-DEEP:
+及格线：说出「目标非平稳 + 自举正反馈」。加分点：τ 与学习率的关系（两个「小步长」如何配合）；对照 PPO 无 value target 也能稳的原因（on-policy + ratio 截断，不在参数空间自举）；SAC 里双 critic 各配 target、actor 无 target 的结构。能从「把自举变成近似监督学习」的角度总结是最好的记忆锚点。
+
+==========================================================================================
+NEW eaq-v02-q19  [knowledge/easy/freq=10]  DQN 在 Q-learning 基础上做了哪两大改进？分别解决什么问题？
+NEW-ANSWER:
+**DQN（Deep Q-Network, Mnih 2015）**在朴素 Q-learning（表格/线性）基础上：
+
+**改进 1：经验回放（Experience Replay）**
+- 问题：online 样本时间相关 → 神经网络训练不稳定
+- 解法：随机从 buffer 采样，打破 temporal correlation + 重复使用数据
+
+**改进 2：Target Network**
+- 问题：TD 目标 $r + \gamma \max_{a'} Q_\phi(s',a')$ 与被拟合的 $Q_\phi(s,a)$ 用同一网络，移动目标 → 发散
+- 解法：单独维护 $\phi'$（每 C 步从 $\phi$ 硬拷贝），让目标在短期内固定
+
+**关键数字**：Atari 实验中 replay buffer 大小 10^6，target 更新频率 10^4 步，batch 32，epsilon-greedy 从 1.0 线性退火到 0.1。
+NEW-MISTAKES: DQN 的神经网络替代的是 Q-table，不是策略 | DQN 输出所有动作的 Q 值（离散动作），不输出动作概率 | 不能直接用于连续动作空间（DDPG 才能）。
+------------------------------------------------------------
+EXISTING dqn-and-double-dqn  id=000000000077  DQN如何学习Q值，Double DQN解决什么问题？为何由online网络选动作、target网络估值？
+EXISTING-CANONICAL:
+DQN：最小化 L = E[(Q(s,a;θ) − y)²]，y = r + γ max_{a′} Q(s′,a′;θ⁻)，θ⁻ 是周期同步的 target 参数；ε-greedy 行为策略 + replay buffer 打破时间相关性。过估计来源：E[max_a (Q̂)] ≥ max_a E[Q̂]——在估计噪声下，max 总是偏向高估的动作，正偏差经 bootstrap 累积。Double DQN 把目标改为 y = r + γ·Q(s′, argmax_{a′} Q(s′,a′;θ); θ⁻)：online 网络负责选动作（它接收的梯度最多、对「哪个动作好」的排序最可信），target 网络负责评估该动作的价值（两套参数的噪声不相关，online 选错动作时其虚高的估计不会被 target 确认）。本质是把「用同一组噪声同时选择与评估」这个偏差来源拆开。
+EXISTING-DEEP:
+及格线：写出两个目标式并指出差异。加分点：过估计的 Jensen 不等式解释；Double DQN 只是把过估计换成轻微欠估计、并未根除（残余偏差仍在）；DQN 家族的其他不稳定源（deadly triad）与后续修复（分布值函数、多步回归）。能从「估计误差与选择是否相关」的角度讲清分工，比背「解耦」二字更深。
+
+==========================================================================================
+NEW eaq-v02-q22  [knowledge/easy/freq=11]  Offline RL 和 Online RL 的核心区别？为什么不能直接用 off-policy 算法跑 offline 数据？
+NEW-ANSWER:
+**Online RL**：与环境实时交互，策略可以探索未知状态。**Offline RL（Batch RL）**：仅用预先收集的固定数据集 $\mathcal{D}$，无法与环境再交互。
+
+**为什么普通 off-policy 不能直接用**：关键问题是**分布外（Out-of-Distribution, OOD）动作过估计**：
+- Q-learning 的 Bellman 更新中有 $\max_a Q(s', a)$（或策略网络选出的 $a'$）
+- 若 $a'$ 不在数据集 $\mathcal{D}$ 中（OOD），神经网络对 $Q(s', a')$ 的外推是任意高（函数近似没有约束）
+- Actor 迭代地找最大 Q → 走向 OOD 区域 → Q 值正反馈爆炸 → 策略崩溃
+
+**类比**：用餐厅菜单的数据学会"最好吃的菜"，但模型会说"菜单上没有的食材做的菜肯定最好吃"——它对未知区域外推是任意的。
+NEW-MISTAKES: Offline RL 不等于 Behavior Cloning（BC）——BC 直接模仿数据动作，不显式学 Q | Offline RL 尝试从数据中推断最优策略（可能比数据 policy 更好），难度更高。
+------------------------------------------------------------
+EXISTING online-vs-offline-rl-in-post-training  id=000000000056  在线强化学习与离线强化学习在数据获取和策略训练方式上有什么区别？在自动驾驶或机器人后训练中，如何选择或结合使用？
+EXISTING-CANONICAL:
+数据获取：在线 RL 由当前策略持续与环境交互产生新鲜数据，分布随策略更新而移动；离线 RL（BCQ、CQL、IQL、Decision Transformer 等）只在固定数据集上训练，完全不与环境交互。策略训练：在线可以放心 bootstrap 与探索；离线必须抑制分布外动作的值高估——用悲观估计（CQL）、策略约束（BCQ）或免策略提升的回归（IQL）。选型：真机与自驾采样昂贵且有安全风险，以离线为主（含 RECAP 式离线 value + 优势条件化）；仿真成本低且可大规模并行 rollout，适合在线 PPO/GRPO。结合方式：离线预训练 → 仿真在线 → 真机少量在线微调；或「仿真在线训练 + 真机数据离线消费」的混合闭环。
+EXISTING-DEEP:
+及格线是说出本质区别「数据分布是否由当前策略控制」；加分点：解释离线 RL 为什么不能直接套 Q-learning（OOD 动作的过估计经 bootstrap 指数放大）、在线 RL 的样本效率与仿真真实度缺口如何权衡、以及 RECAP/π*0.6 为什么把 RL 重写成离线问题——能按「采样成本 x 安全约束 x 奖励可靠性」给出选型矩阵更佳。
+
+==========================================================================================
+NEW eaq-v02-q31  [knowledge/medium/freq=8]  GRPO（Group Relative Policy Optimization）是什么？与 PPO 有何不同？
+NEW-ANSWER:
+**GRPO（DeepSeekMath / DeepSeek-R1 使用的算法）**：PPO 的变体，**消去了 Critic 网络**，用组内相对奖励估计 advantage。
+
+**核心机制**：同一问题采样 G 个输出，用组内奖励计算 advantage：
+$$A_i = \frac{r_i - \text{mean}(r_{1..G})}{\text{std}(r_{1..G})}$$
+更新 loss（最小化）：$L = -L_\text{CLIP} + \beta D_\text{KL}(\pi_\theta \| \pi_\text{ref})$（KL 直接加入 loss，而非加入奖励）
+
+| | PPO | GRPO |
+|---|---|---|
+| Critic | 需要（GAE） | 无 |
+| Advantage | GAE(TD) | 组内相对奖励 |
+| 显存 | 4 模型 | 3 模型 |
+
+**DeepSeek-R1 用 GRPO**：数学题可验证对错，组内对比清晰，无需 Critic；节省约 25% 显存。
+NEW-MISTAKES: GRPO 依赖**可验证奖励** | 纯 RM 打分场景组内方差大，advantage 估计噪声增加。
+------------------------------------------------------------
+EXISTING difference-between-ppo-and-grpo  id=000000000003  What is the difference between PPO and GRPO?
+EXISTING-CANONICAL:
+PPO estimates advantage with a value network (critic) and generalised advantage estimation: A = GAE(rewards, V(s)). GRPO removes the critic entirely. For each prompt it samples a group of G outputs, scores them with a reward model or verifier, and normalises within the group: A_i = (r_i - mean(r)) / std(r). The policy is then updated with a PPO-style clipped objective (plus a KL term) using those relative advantages.
+EXISTING-DEEP:
+The practical difference is cost and variance. Dropping the critic saves a second model of roughly policy size — its parameters, its optimiser state and its forward/backward pass — which matters a lot when the policy is a 7B+ VLA. The trade-off is that group-relative advantage is a noisier baseline than a fitted value function, so GRPO needs a reasonably large group (often 8-16) and benefits from verifiable rewards where correctness is unambiguous. PPO still wins when reward is dense and shaped, when sample efficiency dominates, or when you already maintain a critic for other reasons. In an interview it is worth adding that GRPO is not a new objective so much as PPO with a different advantage estimator.
+
+==========================================================================================
+NEW eaq-v02-q33  [knowledge/easy/freq=10]  稀疏奖励（Sparse Reward）有什么危害？有哪些解法？
+NEW-ANSWER:
+**危害**：agent 几乎无法在合理时间内碰到正奖励，梯度信号几乎为零，策略无法学习（尤其在机械臂 pick-and-place 等任务中）。
+
+**主要解法**：
+
+1. **Reward Shaping**：加中间奖励（如 $-\|p_\text{ee} - p_\text{goal}\|$）；用势能函数形式 $F = \gamma\Phi(s') - \Phi(s)$ 保证最优策略不变。
+2. **HER**：goal-conditioned 任务首选（见 Q21）。
+3. **Curriculum**：从易到难，避免 agent 从零面对全难版本。
+4. **探索增强**：RND（随机网络蒸馏）给新奇状态额外内在奖励。
+5. **Demos + RL**：BC 预训练初始化 → RL 精调（AWAC/RLPD）。
+NEW-MISTAKES: Reward Shaping 非势能函数会改变最优策略 | 必须验证诱导最优与原始目标一致。
+------------------------------------------------------------
+EXISTING sparse-reward-difficulties-and-shaping-validation  id=000000000061  只有到达目标或完成任务时才获得奖励，可能给探索和学习带来哪些困难？如何进行奖励塑形，并验证它是否有效？
+EXISTING-CANONICAL:
+困难有三：随机探索命中奖励的概率随任务步数指数衰减，早期几乎无学习信号；终局奖励对长轨迹的信用分配方差大、收敛慢；成败在奖励上不可分时 value 难以拟合。塑形手段按监督密度递增：势函数塑形 F = γΦ(s′) − Φ(s)（以距离、子任务进度为 Φ，理论上不改最优策略）；课程奖励（先松容差后收紧、先短任务后长任务）；学习型奖励（成败分类器、视觉 reward model、时间一致性自举）；示范引导（从示范末段状态回放起步缩小探索范围）。验证有效性：与稀疏基线对比采样效率和最终成功率——塑形应提高前者而不降低后者；检查是否出现塑形捷径（hacking）；对 Φ 或权重做敏感性分析，指标对塑形细节不敏感才说明学的是任务本身。
+EXISTING-DEEP:
+高分结构：先解释困难为什么是指数级的，再说每种塑形各解决哪个困难，最后强调验证与 hacking 风险。势函数保最优的前提可以引到另一题展开；课程奖励与学习型奖励理论上会改变最优策略，所以验收必须回到原始稀疏指标——「塑形是脚手架、验收看毛坯」这个比喻好用。
+
+==========================================================================================
+NEW eaq-v02-q35  [knowledge/medium/freq=7]  Domain Randomization（DR）是什么？为什么有助于 Sim2Real 迁移？
+NEW-ANSWER:
+在仿真训练中随机化外观、动力学、传感器噪声和延迟，降低策略对单一仿真条件的依赖。范围应由真实测量和失效分析指导，并用保留场景检验迁移。可从较窄范围逐步扩展，或用真实数据估计随机化分布；同时核查接触模型、观测与控制接口是否匹配。
+NEW-MISTAKES: 真实参数落在随机化区间内不保证泛化 | 模型结构失配、未覆盖的组合、尾部事件和训练不足仍会导致失败。
+------------------------------------------------------------
+EXISTING domain-randomization-parameters-and-ranges  id=000000000073  Domain Randomization为何有助于Sim-to-Real？哪些参数应随机化，范围如何设定？
+EXISTING-CANONICAL:
+原理：sim-to-real 的本质是真实环境是仿真的一个未知参数化，DR 把这些参数当随机变量，训练分布覆盖真实参数时部署即为 in-distribution；同时随机化让「精确纹理、理想动力学」这类仿真特有特征不可靠，策略被迫学习结构化、可迁移的特征。参数选择：视觉——纹理/颜色/光照/相机位姿/噪点/遮挡；物理——质量、质心、摩擦、关节阻尼、执行器增益与延迟、控制器参数、控制频率；系统——传感时延、初始状态分布。范围设定：以真机测量/系统辨识值为均值，覆盖其不确定度（±若干标准差）；过窄盖不住 real gap、过宽则奖励信号被噪声淹没任务不可学。进阶：课程式逐步扩范围、active DR / sim-opt 按真机失败反馈定向收窄分布。
+EXISTING-DEEP:
+追问常是：DR 与系统辨识的取舍（无真值时 DR 稳健、有数据时辨识精准，工程上常组合）；随机化过度的「鲁棒但平庸」；视觉 DR 的现代替代（真实数据微调、照片级渲染、domain adaptation）。能给出「参数 ↔ 对应 sim2real gap 类型 ↔ 测量手段」的映射表是加分，说明真的搭过随机化流水线。
+
+==========================================================================================
+NEW eaq-v02-q36  [knowledge/medium/freq=6]  Reward Shaping 的势能函数条件是什么？为什么违反会导致最优策略偏移？
+NEW-ANSWER:
+**Ng 等 1999 提出**：shaped reward $r'(s,a,s') = r(s,a,s') + F(s,s')$，若 $F$ 为**势能函数**形式：
+$$F(s, s') = \gamma \Phi(s') - \Phi(s)$$
+则原 MDP 的最优策略 $= $ shaped MDP 的最优策略（策略不变性）。
+
+**为什么违反导致偏移**：若 $F$ 不是势能函数（如加一个任意中间奖励），等效于改变了原始奖励结构，agent 会被引导走向"中间奖励高"的路径，而非原始目标最优路径。
+
+**典型违反例子**：在迷宫中给"靠近墙壁"加 +1（因为人觉得这样探索多），结果 agent 学会在墙壁反复徘徊而不去目标。
+
+**实务建议**：取 $\Phi(s) = -\|s - g\|$（负距离），则 $F = \gamma(-\|s' - g\|) - (-\|s - g\|)$ 满足势能条件，是典型安全 shaping；success bonus（+1 on reach goal）属于原始奖励，不是 shaping，不在此约束范围内；避免用依赖子目标顺序的、多路径不一致的中间奖励。
+NEW-MISTAKES: 势能函数条件只保证策略不变性，不保证收敛速度 / 样本效率不变 | 好的 shaping 仍可加速训练，关键是不要偏移最优。
+------------------------------------------------------------
+EXISTING potential-based-shaping-policy-invariance  id=000000000065  Reward Shaping 在什么情况下会改变原任务的最优策略？基于势函数的奖励塑形需要满足哪些条件，才能保持最优策略不变？
+EXISTING-CANONICAL:
+Ng 等（1999）的结论：当塑形项可写成 F(s, s′) = γΦ(s′) − Φ(s) 时，对任意势函数 Φ 与折扣 γ，塑形后 MDP 的最优策略与原任务一致——该项沿任意轨迹 telescoping 后只剩 −Φ(s_0) + γ^T Φ(s_T) 的常数组合，不改变轨迹间相对排序，只改变学习动力学（引导 value 与探索方向）。破坏条件就会改最优策略：塑形项依赖动作而非状态差；塑形与原任务折扣不一致；终止处理不对称——要求终止时 Φ(s_T) = 0，否则提前终止或拖延轨迹可以凭空赚取势能差。工程含义：距离与子任务进度奖励应尽量写成势差形式；任意加的步长惩罚、动作幅度惩罚严格说都改变最优策略，实践中常可接受但要清楚代价。
+EXISTING-DEEP:
+能现场给出 telescoping 推导（Σ γ^t F_t = −Φ(s_0) + γ^T Φ(s_T)，终局 Φ 置零后与路径无关）是硬通货；追问常是「为什么动作相关的塑形危险」——它直接偏好某些动作，等价于改写转移奖励结构而非仅引导状态势能。能进一步讨论「实践中何时可以故意违反定理、代价是什么」就是完整答案。
+
+==========================================================================================
+NEW eaq-v03-q16  [knowledge/medium/freq=4]  π0 用的是哪个 VLM backbone？为什么选 PaliGemma 而不是 Llama？
+NEW-ANSWER:
+原始 π0 以 PaliGemma 的预训练视觉语言主干为基础，连接较小的 flow-matching 动作专家。PaliGemma 本身由 SigLIP 视觉编码器和 Gemma 语言模型组成，能提供已有视觉语义能力，并兼顾计算成本。这是论文的架构选择，不能据此断言所有 Llama 系模型都不适合机器人。
+NEW-MISTAKES: PaliGemma 权重采用 Gemma 条款，不能写成 Apache 2.0 | 动作按 50 Hz 执行也不代表 VLM 每 20 ms 完整推理一次。
+------------------------------------------------------------
+EXISTING pi0-vlm-backbone-and-multimodal-token-fusion  id=000000000011  π0 在 VLM 主干、视觉编码器以及图像与语言 token 融合方面有哪些特殊设计？注意力如何交互？
+EXISTING-CANONICAL:
+π0 直接以 PaliGemma 3B 为骨干：SigLIP 把多相机图像编码成视觉 patch token，语言指令 tokenize 后与视觉 token 拼接为同一序列，在 Gemma 主干中做全注意力融合，语言与图像之间是标准的双向注意力。机器人特有信号（本体状态、噪声动作）被隔离在 VLM 上下文之外，只通过额外的输入投影进入动作专家，以最大限度保留互联网图文预训练知识。
+EXISTING-DEEP:
+回答的加分点是知识隔离（knowledge insulation）：动作与状态的分布很窄、与语言分布差异大，若直接进入 VLM 上下文会把主干带偏。π0 的做法是 VLM 只处理图像和语言，动作专家（约 300M 的小 Transformer）与主干联合训练，动作 token attend 到 VLM 的表示以获取语义条件，而 VLM token 无需 attend 回动作 token。对比方案包括 cross-attention 注入、Q-Former 式压缩读取等，可以顺势讨论各自的迁移性与实现成本。
+
+==========================================================================================
+NEW eaq-v03-q17  [knowledge/medium/freq=4]  π0 里 Action Expert 的 300M 参数为什么单独拆出来？和 backbone 怎么交互？
+NEW-ANSWER:
+原始 π0 给动作 token 配置较小的专用 Transformer 权重，用 flow matching 学习连续动作块；视觉语言与动作部分通过注意力交互。推理先编码观测条件，再迭代更新带噪动作。分离参数有助于平衡预训练知识与动作生成的计算需求，但不意味着两个独立模型各训各的。
+NEW-MISTAKES: 原始 π0 不能统一描述成“冻结主干或 LoRA”，也不应把后续 KI 的梯度隔离倒写为原架构机制 | 块长、动作执行频率与重规划频率须分开。
+------------------------------------------------------------
+EXISTING pi0-how-vlm-output-feeds-flow-matching-action-expert  id=000000000012  π0 的 VLM 输出如何注入 Flow Matching 动作模块？
+EXISTING-CANONICAL:
+Flow matching 头把一个动作块初始化为高斯噪声，每一步根据当前噪声动作与上下文预测速度场，再沿学到的向量场积分数步，把噪声输运为连续动作分布的样本。VLM 的角色是提供条件：动作专家是与主干共享注意力的双流 Transformer，动作 token 对 VLM 的图像/语言 token 做注意力，从而读取语义与观测信息；训练目标只是回归给定噪声水平下的目标速度。
+EXISTING-DEEP:
+常见追问包括：为什么选 flow matching 而不是 diffusion——目标更简单（向量场回归）、推理步数灵活可调（约 10 步）、比离散自回归更适合高频连续控制；以及与 diffusion policy 的区别（flow matching 学的是确定性输运路径，训练更稳定）。还可以提到动作专家小于主干带来的推理加速：重计算发生在小网络上，VLM 每次重规划只需前向一次。
+
+==========================================================================================
+NEW eaq-v03-q18  [knowledge/medium/freq=11]  Diffusion Policy 怎么把动作建模成"去噪过程"？相比 BC 直接回归动作有什么优势？
+NEW-ANSWER:
+**建模**：把动作分布 $\pi(a \mid s)$ 用 score-based diffusion 建模。
+- **训练**：在专家动作 $a^*$ 上加噪 $a_\tau = \sqrt{\bar\alpha_\tau} a^* + \sqrt{1-\bar\alpha_\tau}\,\varepsilon$，学噪声预测器 $\varepsilon_\theta(a_\tau, \tau, s)$。
+- **推理**：从 $\varepsilon \sim \mathcal{N}(0, I)$ 起，反向 SDE/ODE 逐步 denoise 到 $a$（DDPM 50 步 / DDIM 10-20 步）。
+
+**vs BC 优势**：
+1. **多模态分布**：BC 回归会"平均"多专家路径输出"中间"不可执行动作；diffusion 显式建模多峰。
+2. **chunk 一次生成**：天然支持 K 步动作 chunk（去噪整段而非单步）。
+3. **长尾任务更稳**：噪声扰动训练相当于隐式数据增强。
+
+**缺点**：① **推理慢**（10-50 step），高频控制需并行/蒸馏；② 训练目标对噪声调度敏感。
+NEW-MISTAKES: Diffusion Policy 不是"在 BC loss 上加噪声"，是完全不同的 score-based 框架。
+------------------------------------------------------------
+EXISTING what-is-diffusion-policy  id=000000000006  What is Diffusion Policy?
+EXISTING-CANONICAL:
+Diffusion Policy treats action generation as conditional denoising. A trajectory of H actions is initialised as Gaussian noise, then a denoising network eps_theta(a^k, k | o) — conditioned on observations o, often via a visual encoder — iteratively removes noise over K steps. Training is the standard DDPM objective: sample a clean trajectory, add noise at level k, predict the noise. At inference the denoised chunk is executed, possibly with receding-horizon control.
+EXISTING-DEEP:
+Its appeal for robotics is representational: behaviour cloning with a deterministic MSE head must commit to one action, which on multimodal demonstrations collapses to the average of several valid strategies. A diffusion head can represent the whole mode set and still sample one concrete trajectory. It also extends naturally to score-based and energy-based conditioning and to inpainting constraints such as fixed start or goal states. The costs are inference latency (K denoising steps per decision, mitigated by DDIM samplers and distillation into one-step policies) and sensitivity to the noise schedule. Follow-ups worth preparing: how it compares to ACT (chunked transformers with a deterministic head) and to flow matching, which trains a continuous velocity field and typically needs fewer sampling steps.
+
+==========================================================================================
+NEW eaq-v03-q20  [knowledge/medium/freq=8]  Diffusion 和 Flow Matching 有什么本质区别？为什么 Flow Matching 在机器人上越来越流行？
+NEW-ANSWER:
+**本质区别**：
+| | Diffusion | Flow Matching |
+|---|---|---|
+| 数学框架 | **SDE** 前向加噪 + 反向去噪 | **ODE** 沿运输路径走 |
+| 学习目标 | 噪声 $\varepsilon$ 或 score $\nabla \log p_\tau$ | **速度场** $v_\theta$ |
+| 路径定义 | 由 SDE 调度（cosine/linear）决定 | **显式给出** $x_\tau = \tau x_1 + (1-\tau) x_0$ |
+| 推理 | SDE 求解器（慢） | ODE 求解器（快） |
+
+**机器人流行原因**：
+1. **推理快**：10 ODE step vs 50 SDE step，高频控制可行。
+2. **训练稳**：速度场数值范围紧凑，loss 不爆炸。
+3. **超参少**：无需选 cosine/linear 调度。
+4. **理论统一**：Diffusion 是 FM 的特例（特定路径下）。
+NEW-MISTAKES: FM 不是 Diffusion 的"加速版"，是更通用框架 | Diffusion 可看作 FM 在特定路径上的实例。
+------------------------------------------------------------
+EXISTING what-is-flow-matching  id=000000000040  什么是 Flow Matching？它的核心思想是什么？与扩散模型有什么关系？
+EXISTING-CANONICAL:
+Flow Matching 属于连续归一化流框架：在高斯噪声分布和数据分布之间构造概率路径（常用条件路径 x_t = (1-t)·噪声 + t·数据 的直线插值），训练目标是回归该路径上的速度场 v(x_t, t)，推理时从噪声出发沿学到的 ODE 积分数步采样。与扩散模型的关系：扩散模型可以看作选择特定（弯曲）路径与噪声调度的特例，Flow Matching 的直线路径让训练目标更简单、采样步数更少（Rectified Flow 还能通过 rerun 把路径进一步拉直）。
+EXISTING-DEEP:
+在具身语境下的落点是 π0：动作专家用 Flow Matching 生成连续动作块，少步 ODE 积分即可满足高频控制。高频追问：与 DDPM/DDIM 的目标差异、为什么回归向量场比预测噪声更稳、以及步数-质量权衡如何调。
+
+==========================================================================================
+NEW eaq-v03-q24  [knowledge/easy/freq=10]  什么是 Action Chunking？为什么 VLA 要预测一个动作 chunk 而不是单步动作？块大小怎么选？
+NEW-ANSWER:
+策略一次预测未来一段动作，显式建模动作间的时间关系。执行时可以整块执行，也可以只执行前几步再重规划，或融合多次预测的重叠部分。块越长，通常越能摊销调用成本，但反馈反应可能变慢；实际调用频率取决于执行时域，不能只看预测块长。
+NEW-MISTAKES: ACT 的 temporal ensembling 每个控制步都查询 | 原论文真机设置用过 k=100。不存在通用的 4–16“甜区”，也没有固定 K 倍推理加速。
+------------------------------------------------------------
+EXISTING what-is-action-chunking  id=000000000005  What is action chunking?
+EXISTING-CANONICAL:
+Instead of mapping one observation to one action, the policy outputs a chunk of H actions a_t..a_{t+H-1}. The robot executes the chunk (often with smoothing) and re-observes. Chunking removes the strong temporal correlation between adjacent single-step predictions, shortens the effective horizon for credit assignment, and amortises one expensive forward pass over H control steps.
+EXISTING-DEEP:
+Three consequences matter in practice. First, latency: a big model that cannot run at 50 Hz can still control at 50 Hz if it re-plans every 0.5 s and executes the chunk, which is exactly why ACT and pi0-FAST chunk. Second, compounding error: fewer re-planning events means fewer opportunities for the policy to react to drift, so chunks that are too long hurt on contact-rich tasks. Third, execution smoothness: consecutive chunks must be reconciled, usually by temporal ensembling or exponential smoothing across overlapping predictions. Interviewers often follow up on the chunk length trade-off — small H is reactive but jittery, large H is smooth but brittle.
+
+==========================================================================================
+NEW eaq-v03-q25  [knowledge/medium/freq=8]  ACT（Action Chunking with Transformers）的结构是什么？它用 VAE / CVAE 解决了什么问题？
+NEW-ANSWER:
+原始 ACT 是条件 VAE 与 Transformer 策略：训练时后验编码器从关节状态和示教动作块推断潜变量 z；策略以相机图像、当前关节状态和 z 为条件，用 k 个位置查询并行预测动作序列，以重建损失和 KL 正则训练。推理移除的是后验编码器，视觉编码仍保留，并将 z 置零。
+NEW-MISTAKES: 原始 ACT 不默认输入文本指令，也不是自回归生成动作 | z=0 是潜变量的确定性取值，不保证对应某条专家轨迹或动作分布的众数。
+------------------------------------------------------------
+EXISTING what-is-act  id=000000000045  什么是 ACT？它的核心思想是什么？相比传统的模仿学习方法有哪些改进？
+EXISTING-CANONICAL:
+ACT（Action Chunking Transformer，ALOHA 工作）是一个条件 VAE 策略：编码器把整段示范动作压缩成风格隐变量 z（捕捉同任务的不同解法），解码器以观测和 z 为条件，用 Transformer 一次预测一整段动作 chunk。执行时对重叠 chunk 做时间集成（加权平均）平滑衔接。相比朴素行为克隆的改进：隐变量让多模态示范不再被 MSE 平均成无效动作；chunk 化降低误差累积并摊薄推理频率。
+EXISTING-DEEP:
+高频追问：为什么不用 diffusion 也能处理多模态（CVAE 隐变量 vs 迭代去噪两条路线）、chunk 长度与时间集成系数怎么调、双臂高精度任务（ALOHA）里它为什么有效。与 π0 的 action chunk 设计可以对比着讲。
+
+==========================================================================================
+NEW eaq-v03-q41  [knowledge/medium/freq=6]  Domain Randomization 是什么？在 VLA / Sim2Real 中怎么用？有哪些常见随机化维度？
+NEW-ANSWER:
+**Domain Randomization（DR）**：训练时**随机化仿真参数**，强迫 policy 在分布外参数下仍鲁棒；本质是数据增强 + 隐式 domain adaptation。
+
+**核心理念**：让仿真分布 **覆盖** 真实分布，policy 在 sim 上鲁棒 = 在真机也鲁棒。
+
+**常见维度**：
+| 类别 | 随机化项 |
+|---|---|
+| **视觉** | 纹理、光照、相机内外参、背景、颜色 |
+| **物理** | 质量、摩擦系数、关节阻尼、外力扰动、重力 |
+| **控制** | 动作延迟、控制器增益、动作噪声 |
+| **传感器** | IMU 偏置、相机噪声、关节编码器分辨率 |
+
+**VLA / Sim2Real 用法**：
+1. Sim 大规模 DR 训练（pretrain）；
+2. 真机 demos fine-tune（domain adaptation）；
+3. 与 **RMA** 配合：RMA 引入 latent 编码当前 domain，online 推断；DR + RMA 比纯 DR 强。
+NEW-MISTAKES: DR 不是"越多越好"——过强会使任务无解，训练发散 | 需 curriculum（先弱后强）。
+------------------------------------------------------------
+EXISTING domain-randomization-parameters-and-ranges  id=000000000073  Domain Randomization为何有助于Sim-to-Real？哪些参数应随机化，范围如何设定？
+EXISTING-CANONICAL:
+原理：sim-to-real 的本质是真实环境是仿真的一个未知参数化，DR 把这些参数当随机变量，训练分布覆盖真实参数时部署即为 in-distribution；同时随机化让「精确纹理、理想动力学」这类仿真特有特征不可靠，策略被迫学习结构化、可迁移的特征。参数选择：视觉——纹理/颜色/光照/相机位姿/噪点/遮挡；物理——质量、质心、摩擦、关节阻尼、执行器增益与延迟、控制器参数、控制频率；系统——传感时延、初始状态分布。范围设定：以真机测量/系统辨识值为均值，覆盖其不确定度（±若干标准差）；过窄盖不住 real gap、过宽则奖励信号被噪声淹没任务不可学。进阶：课程式逐步扩范围、active DR / sim-opt 按真机失败反馈定向收窄分布。
+EXISTING-DEEP:
+追问常是：DR 与系统辨识的取舍（无真值时 DR 稳健、有数据时辨识精准，工程上常组合）；随机化过度的「鲁棒但平庸」；视觉 DR 的现代替代（真实数据微调、照片级渲染、domain adaptation）。能给出「参数 ↔ 对应 sim2real gap 类型 ↔ 测量手段」的映射表是加分，说明真的搭过随机化流水线。
+
+==========================================================================================
+NEW eaq-v03-q47  [knowledge/hard/freq=3]  RECAP（π*0.6）的核心是什么？示教、自主执行与人工纠正怎样结合？
+NEW-ANSWER:
+RECAP 使用示教、自主执行与人工纠正数据，结合价值估计获得动作块的优势信号，用优势条件策略学习区分较好与较差行为；执行时选择较好优势条件生成动作。策略再收集经验与纠正，形成迭代改进。π*0.6 指经 RECAP 后训练的策略，应与 π0.6 基座区分。
+NEW-MISTAKES: 不只是离线示教，也不是 reward-weighted regression 或默认 reward model 加 PPO | 优势如何离散化、价值如何训练须依原文说明。
+------------------------------------------------------------
+EXISTING recap-full-procedure  id=000000000026  请完整说明 ReCAP 的流程，包括人工介入、训练和测试环节。
+EXISTING-CANONICAL:
+1）经验收集：机器人自主滚动任务，出现险情或失败时由人工接管纠正，全部写入回放。2）训练：先做 SFT 恢复基本能力；在回放数据上以时间一致性拟合 value 函数，得到每段经验的优势估计；把优势量化为标签，与状态-动作一起做优势条件化训练（RECAP），人工纠正段天然携带高优势标签。3）测试与部署：策略以「高优势」条件自举执行，持续采集新经验回到第一步，形成部署即学习的闭环。
+EXISTING-DEEP:
+与在线 RL 的工程差异是回答重点：整个过程中没有环境交互中的梯度更新，学习全部发生在回放数据上的监督式拟合；人工介入既保证安全又提供高质量正例。追问可能在「纠正段的标签为什么可信」「优势条件在部署时如何选择」以及该流程对操作员的依赖程度。
+
+==========================================================================================
+NEW eaq-v03-q54  [knowledge/easy/freq=6]  你的项目里奖励函数怎么设计？为什么这么设？尝试过哪些其他形式？
+NEW-ANSWER:
+**设计原则**：
+1. **Dense vs Sparse**：dense 收敛快但易 reward hacking；sparse 难学但目标明确。
+2. **Shaping**：加 distance / progress 等中间信号引导。
+3. **Multi-component**：`R = task_reward + safety_penalty + smoothness_penalty`，相加形成总奖励。
+4. **Curriculum**：早期 dense 加快学习，后期切 sparse 防 hacking。
+
+**项目答题框架（套你的项目讲）**：
+- 任务奖励：成功完成给大 +R，关键 sub-event（接触 / 接近）给小正奖励。
+- 安全惩罚：碰撞 / 关节限位 / 力超限给负奖励。
+- 平滑惩罚：$-\alpha \|\Delta a\|^2$ 防抖动；trade-off：α 大动作平滑但响应慢。
+- 尝试过的其他形式：纯 sparse 收敛慢、纯 dense 易 hacking；最终选 hybrid。
+NEW-MISTAKES: reward hacking 不靠 reward 曲线判断——要看 rollout 视频是否真完成任务（模型常找"接近但不抓"刷分）。
+------------------------------------------------------------
+EXISTING reward-design-for-embodied-tasks  id=000000000050  在具身智能任务中，如何设计奖励函数？有哪些典型的奖励设计思路？
+EXISTING-CANONICAL:
+典型思路按监督密度递增：1）稀疏奖励——只用任务成功/失败，无偏但探索难；2）势函数塑形（potential-based shaping）——以距离/子任务进度给密集信号，且理论上不改变最优策略；3）课程奖励——随训练进度逐步收紧容差或增加难度；4）学习型奖励——用成败分类器、视觉 reward model 或时间一致性自举从少量标注扩展到全量数据（π*0.6 的做法）；5）偏好奖励——人类偏好比较训练 reward model。
+EXISTING-DEEP:
+这题的高分点在风险意识：稠密手工奖励容易被黑客（机器人学会蹭奖励而不是完成任务），所以现代机器人后训练普遍「稀疏成功 + 学习型 value + 人工纠正兜底」。能对比仿真（可以放手塑形）与真机（信号只能来自少量人工核验）的不同约束更佳。
+
+==========================================================================================
+NEW eaq-v03-q59  [knowledge/easy/freq=None]  数据采集到训练的数据链路如何设计？需要记录哪些字段？
+NEW-ANSWER:
+我会把它说成一条可复现的数据工程链路：先采 raw log，再做相机标定、时间同步、episode 切分、异常清洗、动作 / 状态归一化，最后导出统一 schema，比如 RLDS、LeRobot，或 HDF5 + metadata。字段至少包括时间戳、语言指令、图像观测、机器人状态、action、执行后状态、机器人 / 相机 / 控制频率等 metadata；如果有深度、相机标定、成功标签或子任务标签，也要一并记录。训练前还要按任务、场景、操作者或物体划分 train / val / test，避免同一个 episode 的相邻帧泄露到测试集。
+NEW-MISTAKES: 不要只说"收了一些视频"，VLA 数据最关键的是 observation-action-time 三者可追溯。
+------------------------------------------------------------
+EXISTING stages-of-robot-data-collection-pipeline  id=000000000010  What are the main stages of a robot data collection pipeline?
+EXISTING-CANONICAL:
+1) Task and embodiment definition — what is being demonstrated, on which hardware, with what success criterion. 2) Capture — teleoperation (leader-follower arms, VR or motion-capture controllers, exoskeletons) recorded at a fixed control rate, logging joint states, end-effector poses, camera streams, force/torque and gripper state. 3) Synchronisation and calibration — hardware timestamps, camera intrinsics and extrinsics, hand-eye calibration. 4) Cleaning — dropping failed or idle segments, trimming to the contact-relevant window, resampling, handling dropped frames. 5) Annotation — language instructions, sub-task segmentation, success labels, sometimes keypoints or affordances. 6) Curation and mixing — balancing task and scene diversity, deduplicating near-identical trajectories, and deciding the ratio of robot data to simulation or human video.
+EXISTING-DEEP:
+The parts interviewers care about are the failure modes. Hardware drift and re-calibration silently invalidate collected data, so versioning each collection session with its calibration is essential. Teleoperation is the throughput bottleneck, which is why the field leans on cross-embodiment datasets, simulation augmentation and human video pretraining. Demonstration quality dominates quantity: a smaller set of consistent, smooth, successful trajectories usually beats a large noisy set, because behavioural cloning fits the noise as readily as the skill. Finally, the dataset contract matters — action and observation spaces must be pinned down per embodiment, or data collected this month will not train next quarter's policy.
+
+==========================================================================================
+NEW eaq-v04-q12  [knowledge/easy/freq=8]  Domain Randomization（域随机化）是什么？为什么能缩小 reality gap？
+NEW-ANSWER:
+**Domain Randomization（DR）**：在仿真训练时，将物理参数（摩擦、质量、关节刚度）和视觉参数（纹理、光照、相机位置）在预设范围内**随机采样**，迫使策略对参数变化保持鲁棒。
+
+**为什么有效**：若真实世界参数在训练时的随机化范围内（或接近），策略已见过该参数值，可直接 zero-shot 迁移。核心假设是"只要随机化范围足够宽，真实世界参数必然被覆盖"。
+
+**两类 DR**：
+- **物理 DR**：摩擦系数、关节阻尼、质量 → 应对动力学 gap
+- **视觉 DR**：纹理贴图、光照强度、颜色扰动 → 应对渲染 gap（OpenAI dexterous hand 经典案例）
+
+**关键超参**：随机化范围需要调——太窄覆盖不了真实，太宽任务太难导致训练不收敛。
+NEW-MISTAKES: DR 不等于"随机化越大越好" | 过大的随机范围会使任务变得无法学习（policy 一直在应对极端情况），需要 curriculum 逐步扩大范围。
+------------------------------------------------------------
+EXISTING domain-randomization-parameters-and-ranges  id=000000000073  Domain Randomization为何有助于Sim-to-Real？哪些参数应随机化，范围如何设定？
+EXISTING-CANONICAL:
+原理：sim-to-real 的本质是真实环境是仿真的一个未知参数化，DR 把这些参数当随机变量，训练分布覆盖真实参数时部署即为 in-distribution；同时随机化让「精确纹理、理想动力学」这类仿真特有特征不可靠，策略被迫学习结构化、可迁移的特征。参数选择：视觉——纹理/颜色/光照/相机位姿/噪点/遮挡；物理——质量、质心、摩擦、关节阻尼、执行器增益与延迟、控制器参数、控制频率；系统——传感时延、初始状态分布。范围设定：以真机测量/系统辨识值为均值，覆盖其不确定度（±若干标准差）；过窄盖不住 real gap、过宽则奖励信号被噪声淹没任务不可学。进阶：课程式逐步扩范围、active DR / sim-opt 按真机失败反馈定向收窄分布。
+EXISTING-DEEP:
+追问常是：DR 与系统辨识的取舍（无真值时 DR 稳健、有数据时辨识精准，工程上常组合）；随机化过度的「鲁棒但平庸」；视觉 DR 的现代替代（真实数据微调、照片级渲染、domain adaptation）。能给出「参数 ↔ 对应 sim2real gap 类型 ↔ 测量手段」的映射表是加分，说明真的搭过随机化流水线。
+
+==========================================================================================
+NEW eaq-v05-q17  [knowledge/medium/freq=5]  Flash Attention 的原理是什么？VLA 训练中为何几乎是标配？
+NEW-ANSWER:
+**标准 Attention 瓶颈**：$QK^T$（$L \times L$）需 $O(L^2)$ HBM 读写；VLA context 达 512-2048 token 时带宽成瓶颈。
+
+**核心思路**：① 分块（Tiling）：Q, K, V 小块在 SRAM 上完成 softmax + 加权，不写中间矩阵回 HBM；② Online Softmax 修正：维护 running max/sum 保证数值等价；③ 反向时重算 attention（不缓存 $L^2$ 矩阵）。
+
+**收益**：HBM 读写 $O(L^2) → O(L)$，速度 2-4×，显存大幅降低。
+
+**VLA 几乎标配原因**：多帧图像 token（每帧 256）+ 文本 + 历史动作，context 长度大，标准 attention 显存紧张甚至 OOM。
+NEW-MISTAKES: Flash Attention 只改变内存访问模式，不改变计算结果（数学等价） | 与 KV cache 优化目标不同——Flash Attention 训练/推理通用，KV cache 仅推理。
+(no existing target — intra-import dup, handled by sibling new question)
+
+==========================================================================================
+NEW eaq-v05-q28  [knowledge/medium/freq=5]  什么是 reward hacking？机器人训练中的常见表现和解决思路？
+NEW-ANSWER:
+**Reward hacking**：策略找到了"高 reward 但违背任务意图"的捷径行为，即 reward 函数没有完整表达人的意图。
+
+**机器人常见表现**：
+- 抓取任务：夹爪直接压住物体（不抬起）触发"接触 = 抓到"reward
+- 导航任务：机器人原地抖动触发"速度大 = 探索积极"reward
+- 灵巧操作：过度用力挤压物体达成"接触力 > 阈值"的假成功
+
+**解决思路**：
+1. **Reward Shaping 精细化**：加约束（如同时检测抬起高度 + 接触力 + 位移）
+2. **RLHF / Preference Learning**：人类偏好标注替代 reward 函数
+3. **Demo-conditioned reward**：只有动作接近 demo 时才给 reward（如 GAIL/AIRL）
+4. **多目标约束**：主 reward + 行为约束 penalty（如异常力矩惩罚）
+5. **真机验证频率提高**：仿真训练 + 每 N 步真机评估，早发现 hacking 行为
+NEW-MISTAKES: Reward hacking 不是"策略 bug"，是 reward 设计问题 | 加更多训练数据解决不了，必须修 reward 定义。
+(no existing target — intra-import dup, handled by sibling new question)

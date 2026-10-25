@@ -14,7 +14,7 @@ import {
   getRelatedQuestions,
 } from "@/lib/knowledge/queries";
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS } from "@/lib/knowledge/constants";
-import { renderMathHtml } from "@/lib/math-text";
+import { renderAnswerHtml, renderInlineHtml } from "@/lib/answer-markdown";
 import "katex/dist/katex.min.css";
 
 export async function generateMetadata({
@@ -67,6 +67,15 @@ export default async function KnowledgeQuestionPage({
                 {DIFFICULTY_LABELS[question.difficulty]}
               </Badge>
             ) : null}
+            {question.sourceFreq != null && question.sourceFreq > 0 ? (
+              <Badge
+                variant="default"
+                className="bg-warning/15 text-warning-ink"
+                title={`在 ${question.sourceFreq} 份独立公开面经中出现过（外部题库统计口径）`}
+              >
+                🔥×{question.sourceFreq} 高频
+              </Badge>
+            ) : null}
             {question.stats?.interviewCount ? (
               <Badge variant="default">
                 {question.stats.interviewCount} 条面试记录
@@ -79,7 +88,7 @@ export default async function KnowledgeQuestionPage({
           {question.summary ? (
             <p
               className="text-ink-secondary max-w-2xl text-base leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: renderMathHtml(question.summary) }}
+              dangerouslySetInnerHTML={{ __html: renderInlineHtml(question.summary) }}
             />
           ) : null}
           <ul className="flex flex-wrap gap-2">
@@ -127,6 +136,34 @@ export default async function KnowledgeQuestionPage({
         ) : null}
         <InterviewOccurrences occurrences={occurrences} />
         <KnowledgeQuestionLinks groups={relations} followUps={followUps} />
+        {question.sourceMeta ? (
+          <footer className="border-line-subtle text-ink-tertiary flex flex-col gap-1 border-t pt-4 text-xs">
+            <p>
+              题源：
+              {typeof question.sourceMeta.repo === "string" ? (
+                <a
+                  href={question.sourceMeta.repo}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  {question.sourceMeta.repo.replace(/^https?:\/\//, "")}
+                </a>
+              ) : null}
+              {typeof question.sourceMeta.license === "string"
+                ? `（${question.sourceMeta.license} License）`
+                : null}
+              {typeof question.sourceMeta.volume_title === "string"
+                ? ` · ${question.sourceMeta.volume_title}`
+                : null}
+              {typeof question.sourceMeta.section === "string"
+                ? ` · ${question.sourceMeta.section}`
+                : null}
+              {typeof question.sourceMeta.qid === "string" ? ` ${question.sourceMeta.qid}` : null}
+            </p>
+            {typeof question.sourceMeta.note === "string" ? <p>{question.sourceMeta.note}</p> : null}
+          </footer>
+        ) : null}
       </article>
     </Container>
   );
@@ -147,9 +184,12 @@ function AnswerSection({
         {title}
       </h2>
       <div className="text-ink-secondary flex flex-col gap-4 text-[0.9375rem] leading-7">
-        {content.split(/\n{2,}/).map((paragraph, index) => (
-          <p key={index} dangerouslySetInnerHTML={{ __html: renderMathHtml(paragraph) }} />
-        ))}
+        {renderAnswerHtml(content)
+          .split("\n")
+          .filter(Boolean)
+          .map((block, index) => (
+            <div key={index} dangerouslySetInnerHTML={{ __html: block }} />
+          ))}
       </div>
     </section>
   );
@@ -171,7 +211,7 @@ function ListSection({
       </h2>
       <ul className="text-ink-secondary flex list-disc flex-col gap-2 pl-5 text-[0.9375rem] leading-7">
         {items.map((item, index) => (
-          <li key={index} dangerouslySetInnerHTML={{ __html: renderMathHtml(item) }} />
+          <li key={index} dangerouslySetInnerHTML={{ __html: renderInlineHtml(item) }} />
         ))}
       </ul>
     </section>

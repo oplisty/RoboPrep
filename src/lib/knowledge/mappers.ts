@@ -2,6 +2,7 @@ import type { Json } from "@/types/database";
 import type {
   KnowledgeQuestionDetail,
   KnowledgeQuestionSummary,
+  KnowledgeSourceMeta,
   KnowledgeStats,
   KnowledgeTopic,
   KnowledgeTopicNode,
@@ -17,6 +18,12 @@ import type { QuestionWithStatsRow } from "./rows";
 export function toStringList(value: Json | null | undefined): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+/** Narrow the source_meta jsonb blob into the UI contract, defensively. */
+export function toSourceMeta(value: Json | null | undefined): KnowledgeSourceMeta | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as KnowledgeSourceMeta;
 }
 
 export function mapStats(row: {
@@ -58,6 +65,7 @@ export function mapQuestionSummary(
     estimatedMinutes: row.estimated_minutes,
     isFeatured: row.is_featured,
     stats: mapStats(row),
+    sourceFreq: row.source_freq ?? null,
   };
 }
 
@@ -73,6 +81,7 @@ export function mapQuestionDetail(
     keyPoints: toStringList(row.key_points),
     commonMistakes: toStringList(row.common_mistakes),
     interviewTips: toStringList(row.interview_tips),
+    sourceMeta: toSourceMeta(row.source_meta),
   };
 }
 

@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.5.0 (2026-10-25)
+
+### Added
+- **embodied-interview-qa 全量导入（412 题 + 24 题答案融合）**：题源为
+  [WinstonJQ/embodied-interview-qa](https://github.com/WinstonJQ/embodied-interview-qa)
+  （MIT License，commit 001e4238，2026-10-19 版），中文具身智能秋招高频题库九卷
+  共 464 条。跳过源库维护者明确不入主表的 19 条「N 备选」后导入 445 条；其中 33
+  条与现有题库重复（含跨语言重复与 DR/SAC/稀疏奖励/在线离线 RL 等多对一重复），
+  按「跳过重复 + 现有答案融合补强」处理：24 个现有题各追加「外部题库补充」段落
+  （仅补充原答案缺失的要点，如 KV Cache 训练/推理不对称、GRPO 的 KL-in-loss 与
+  4 模型 vs 3 模型显存对比、ACT 真机 k=100 数字校准、HER/RND 补位等）并合并
+  易错点。新增 10 个 topic（深度学习基础、离线强化学习、工程落地、腿足控制、
+  遥操作、SLAM 与 3D 感知、具身导航、LeetCode 手撕、系统设计、前沿方向），
+  共 586 条 question_topics 关联。卷八按用户要求全量进入：LeetCode 30 题为
+  coding 型知识条目（含完整 Python 实现），ML/机器人系统设计 10 题为
+  system_design 型；卷九 8 题标为 research 型（源库明确非面经）。seed 由
+  `scripts/generate_embodied_qa_seed.py` 从 vendored 源文件生成
+  （`supabase/seed_embodied_interview_qa.sql`，幂等，只插入不修改既有数据；
+  融合 UPDATE 单列一段）。seed 后题库规模 79 → 491 题。
+- **🔥 外部题库频次（source_freq）**：新增迁移 0025，`questions` 表增加
+  `source_freq`（该题在 N 份独立公开面经中出现，即源库 🔥×N 口径；与站内
+  `question_stats.interview_count` 相互独立）与 `source_meta`（导入/融合来源：
+  repo、commit、license、卷/节/题号）。Knowledge 列表与详情页展示 🔥×N 徽标，
+  详情页底部展示题源署名；频次 ≥15 的题设为精选（is_featured）。
+- **答案渲染升级**：`math-text.ts` 支持显式 `$…$` / `$$…$$` LaTeX 定界
+  （pandoc 风格空白规则，货币单美元符不误判）；新增 `answer-markdown.ts`
+  轻量块级渲染器（代码围栏、markdown 表格、有序/无序列表、粗体、行内代码），
+  导入题的 170 处代码块、435 行表格与公式均可正确显示；既有纯文本答案渲染
+  行为不变。新增 `scripts/tests/answer-render.test.mjs`（9 项回归测试）。
+- **全量正确性审查（2026-10-25）**：对 412 道导入题与 24 条融合逐一人工核对
+  （公式重推导、代码逐行验证、论文归因与数字逐条比对、易错点本身正确性）。
+  结论：修正 3 处内容——卷一 q37 D-H 约定归属写反（Craig 是改进 D-H 代表，
+  已改为「标准 DH=Denavit-Hartenberg 原始约定/Spong 沿用 vs MDH=Craig」）、
+  卷一 q08 RoPE「天然外推」过强（改为需位置插值/NTK/YaRN 扩展）、卷二 q24
+  IQL expectile τ 写死 0.9（改为官方默认 0.7、任务间 0.7-0.9）；修复解析器
+  一处易错块截断 bug（易错段内的行内粗体标签误终止段落，影响 5 条，含 v02-q20
+  Dueling 归一化公式被截断）。「破例说明」维护注记改归入 source_meta 题源。
+  修正经 `scripts/embodied_qa_source/corrections.json`（带 stale 断言）回灌
+  生成器，seed 已重新生成。卷六控制类手撕（四元数 Shepperd 分支、改进 DH
+  矩阵、DARE、MPC QP 构造）与卷八 30 道 LeetCode 逐用例验证零错误；卷九
+  8 条前沿题为源库按一手资料核对的口径、内部自洽，超出可独立核实范围。
+
 ## 1.4.0 (2026-09-29)
 
 ### Added

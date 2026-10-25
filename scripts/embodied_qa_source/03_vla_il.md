@@ -1,0 +1,1438 @@
+# 卷三 · VLA / 模仿学习 · 高频面试题
+
+> 中文具身智能秋招高频面试题库 · **第三卷**
+> 题源：牛客 / 知乎 / 小红书（教授级 AMA）/ CSDN / GitHub 公开面经
+> **题目统计**：普通问答 68 · 手撕 9 · N 备选 0 · 合计 **77** 个条目。
+
+**难度分布（全卷，含手撕与 N 备选）**：L1 **24** · L2 **43** · L3 **10**
+
+> 2026-10 维护说明：新增题标“低频实录”，保留具体岗位与来源；旧 🔥 数字沿用历史版本，未重核全部原帖，不代表本季度频次。
+
+**使用方式**：题目默认折叠，点开看答案。建议先按 **L1 → L2 → L3** 顺序刷；同级内按频次从高到低。手机端原生支持。
+
+---
+
+## §1 模仿学习理论基础（8 题）
+
+> IL 是 VLA 的入口；先把 BC / DAgger / 协变量偏移搞清楚，后面看 ACT / Diffusion Policy 才能融会贯通。
+
+<details class="qa" id="q01">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×12</span> <b>Q01</b> · Behavior Cloning（BC）是什么？为什么会有 covariate shift？怎么缓解？</summary>
+
+**答**：BC 用专家示教做监督学习，拟合给定观测下的动作。部署时策略偏离专家轨迹，会访问训练覆盖不足的状态，误差可能继续放大，这就是策略诱导的分布偏移。可用 DAgger 查询策略访问态的专家动作，补充恢复与失败数据，提高场景覆盖，并结合反馈重规划。动作块有助于时间一致性，但不是解决分布偏移的保证。
+
+**易错**：单步监督误差小不保证长程成功；DAgger 的效果依赖专家查询和学习条件，不能简单说它“几乎消除”所有偏移。
+
+**核验**：[DAgger 原论文](https://proceedings.mlr.press/v15/ross11a.html)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×11</span> <b>Q02</b> · BC、DAgger、GAIL、IRL 的区别与适用场景？</summary>
+
+**答**：
+- **BC**：监督学习直接学 $\pi(a\mid s)$；简单、需要大量演示，有 shift。**场景**：数据足、任务短。
+- **DAgger**：BC + 主动学习，迭代让策略访问的新状态由专家标注；几乎消除 shift。**场景**：专家在线可查询（仿真 / 人在回路）。
+- **GAIL**：生成对抗 IL，判别器区分"策略 vs 专家"轨迹，policy 通过 RL 最大化欺骗判别器；无需 reward。**场景**：复杂行为、reward 难写。
+- **IRL**：反推 reward function $R(s,a)$，再 RL 求解；可解释、可泛化。**场景**：想理解专家"为什么这么做"。
+
+**易错**：DAgger 不是 BC 的"训练 trick"，是要持续访问专家；GAIL 训练不稳（GAN 通病），机器人上较少用。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×6</span> <b>Q03</b> · DDPG / PPO / TD3 / SAC 的区别？哪些更适合机器人连续控制？</summary>
+
+**答**：
+- **DDPG**：off-policy actor-critic，确定性策略 + Q-learning；连续动作开山之作，但 Q 易过估、超参敏感。
+- **TD3**：DDPG + **双 Q**（取 min 缓过估）+ **delayed actor update** + **target policy smoothing**；稳但保守。
+- **SAC**：max-entropy 框架，policy 输出 $\pi(\cdot\mid s) = \mathcal{N}(\mu_\theta, \sigma_\theta)$ + **自动 temperature**；探索好、sample efficient。
+- **PPO**：on-policy，clip ratio 限制策略更新；样本贵但稳，常用于 RLHF / VLA 微调。
+
+**机器人推荐**：① 真机 sample 贵 → **SAC**（off-policy + 探索强）；② 仿真大规模 + 稳定性优先 → **PPO**；③ VLA + LLM 风格微调 → **PPO**（与 RLHF 一致）。
+
+**易错**：SAC 的 entropy 不是"探索 trick"，是 max-entropy RL 的正则项；temperature α 自动调比手调好得多。
+
+</details>
+
+<details class="qa" id="q04">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×5</span> <b>Q04</b> · Mobile ALOHA 怎么解决"移动 + 双臂"协同？它和静态 ALOHA 的数据怎么联合训练？</summary>
+
+**答**：Mobile ALOHA 在双臂系统上加入移动底盘和全身遥操作接口，同步记录移动与操作示教；策略可联合预测手臂、夹爪和底盘动作。训练时将移动任务数据与静态 ALOHA 数据混合，利用后者的操作经验提高数据效率。原论文以每任务 50 条移动示教评估，收益随任务与方法变化。
+
+**易错**：不能把论文不同任务汇总成统一“30% 提升到 90%”；动作维数须先说明是关节加夹爪还是仅机械自由度。
+
+**核验**：[Mobile ALOHA 作者页](https://mobile-aloha.github.io/)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×4</span> <b>Q05</b> · 解释 Markov 性质，为什么 RL 假设 MDP？POMDP 是怎么扩展的？</summary>
+
+**答**：**Markov 性质**：$P(s_{t+1} \mid s_t, a_t, s_{<t}, a_{<t}) = P(s_{t+1} \mid s_t, a_t)$，即下一状态只依赖当前 $(s, a)$，与历史无关。
+
+**MDP**：$\langle S, A, P, R, \gamma \rangle$，假设 **fully observable**（agent 看到的就是真实 state）；Bellman 方程可解，DP/RL 算法都依赖它。
+
+**POMDP**：加观测函数 $O$，agent 收到 $o_t = O(s_t)$ 而非真实 $s_t$；用 **belief state** $b_t = P(s_t \mid o_{\leq t}, a_{<t})$ 替代 $s_t$，或用 RNN/Transformer 编码历史。
+
+**机器人现实**：几乎都是 POMDP（相机有限视野、力觉噪声、遮挡）；这是为什么 VLA 多用 history 帧 + 序列模型，而非单帧。
+
+**易错**：POMDP 不等于"不能 RL"，只是要换 belief 或 history-conditioning。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×4</span> <b>Q06</b> · 值迭代和策略迭代的区别？最优值函数为什么直接对应最优策略？</summary>
+
+**答**：
+- **值迭代（VI）**：反复迭代 $V_{k+1}(s) = \max_a [R(s,a) + \gamma \mathbb{E}_{s'} V_k(s')]$ 直到收敛 $V^*$，最后 $\pi^*(s) = \arg\max_a Q^*(s, a)$。
+- **策略迭代（PI）**：两步交替——① **评估**：解线性方程组求 $V^\pi$；② **改进**：$\pi'(s) = \arg\max_a Q^\pi(s, a)$。
+
+**区别**：VI 每步只做"局部 max + 一步 lookahead"，便宜但需更多迭代；PI 每步评估完整 $V^\pi$，贵但收敛步数少。两者都收敛到 $V^*$。
+
+**最优值 → 最优策略**：定义 $\pi^*(s) = \arg\max_a [R(s,a) + \gamma \,\mathbb{E}_{s' \sim P(\cdot \mid s,a)}\, V^*(s')]$，由 Bellman 最优方程，这就是 greedy w.r.t. $V^*$；所以 $V^*$ 解出来策略也"白送"。
+
+**易错**：PI 的"评估"步在状态多时需要近似（GPI 即 partial PI）；VI 在大状态空间退化成 Q-learning。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×3</span> <b>Q07</b> · model-based RL 和 model-free RL 的区别？哪种更适合 sample-expensive 的真机训练？</summary>
+
+**答**：
+- **Model-free**：直接学策略 $\pi$ 或值函数 $Q$，不显式建模环境（PPO/SAC/DQN）；简单、稳，但 sample efficiency 差。
+- **Model-based**：先学环境动力学 $\hat{P}(s'\mid s,a)$ 与 $\hat{R}$，再用模型做规划（CEM/MPPI）或 imagination 训 policy（Dreamer/MuZero）；sample efficient 5-100×。
+
+**真机首选 model-based**：真机数据贵（1 次抓取 30s + reset），model-based 用 1/10 数据达到 model-free 效果。
+
+**但有坑**：① **Model error 累积**：长程 rollout 误差爆炸（→ short horizon / 不确定性正则）；② 真机分布与模型分布不一致（→ DAgger 思路收集 on-policy 数据回训模型）。
+
+**实务路线**：仿真 model-free 预训练 → 真机 model-based 精调；或 offline RL 先吃所有历史数据，再 model-based 精调。
+
+**易错**：Dreamer 不是 model-free，是 model-based + latent dynamics + imagination。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×3</span> <b>Q08</b> · GAE（Generalized Advantage Estimation）是什么？为什么 PPO 离不开它？</summary>
+
+**答**：**GAE** 是 advantage 估计器，在 high-variance MC 和 high-bias TD 之间用 $\lambda$ 插值：
+
+$$\hat{A}_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^\infty (\gamma\lambda)^l \delta_{t+l}, \quad \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$$
+
+- $\lambda=1$：纯 MC，方差大、无 bias；
+- $\lambda=0$：纯 TD，方差小、有 bias；
+- 实务 $\lambda \approx 0.95$, $\gamma \approx 0.99$ 是甜区。
+
+**PPO 离不开**：PPO 的目标是 $\mathbb{E}[\min(r_t \hat{A}_t, \text{clip}(r_t, 1\pm\epsilon)\hat{A}_t)]$，**没有 $\hat{A}$ 就没有 PPO**。GAE 给 $\hat{A}$ 提供低方差估计，是 PPO 在机器人/RLHF 上稳定收敛的关键。
+
+**易错**：GAE 不是"PPO 专属"，TRPO / A3C 都能用；但 PPO clip + GAE 是最常见组合。
+
+</details>
+
+---
+
+## §2 VLA 模型架构时间线（9 题）
+
+> RT-1 → RT-2 → OpenVLA → π0 → π0.5/0.6/0.7 的演进 + RDT / Octo / GR00T 平行路线。
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×15</span> <b>Q09</b> · OpenVLA 和 RT-2 在架构上的主要区别？OpenVLA 用 7B Llama-2 凭什么打过 55B 的 RT-2-X？</summary>
+
+**答**：
+| | OpenVLA | RT-2 / RT-2-X |
+|---|---|---|
+| Backbone | Llama-2 **7B**（Prismatic 框架） | PaLI-X **55B** 或 PaLM-E **12B**（闭源） |
+| 视觉 | **SigLIP + DINOv2 双路** | PaLI-X / PaLM-E 内置 ViT（含 ViT-22B 等） |
+| 动作头 | 每维 256 bin 离散化 → 复用 LLM 词表最不常用 256 token | 同 |
+| 训练数据 | Open-X-Embodiment **970K** 轨迹 | Google 内部 + Open-X |
+| 开源 | ✅ 全开源 + LoRA-friendly | ❌ 闭源 |
+
+**胜出原因**：① **DINOv2 补足空间几何**——CLIP/SigLIP 偏语义弱几何，DINOv2 自监督预训练对空间结构更敏感；② Llama-2 web 文本 + 代码预训练更稳；③ 全开源使社区微调迭代更快。
+
+**易错**：OpenVLA 不是"小胜大"玄学——是同等 fine-tune 量上的工程整合优势；零样本新任务上 RT-2-X 仍可能更强。
+
+</details>
+
+<details class="qa" id="q10">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×9</span> <b>Q10</b> · RT-2 是怎么把动作编码成 token 的？为什么这种"动作即文本 token"方案有效但效率不高？</summary>
+
+**答**：RT-2 将动作表示为八个离散字段：结束标志、末端三维平移、三维旋转和夹爪；连续量按范围量化为 256 档，再以模型可输出的 token 序列表示，与视觉语言任务联合微调。好处是复用 VLM 的语义知识与序列建模能力；代价是逐 token 生成带来的延迟，以及动作量化误差。具体 token 映射随 VLM 实现而异。
+
+**易错**：RT-2 的八字段含结束标志；不要与 OpenVLA 常见的七维动作及词表映射混为一谈，也不能由 256 档推出某类插针任务必然失败。
+
+**核验**：[RT-2 原论文](https://arxiv.org/html/2307.15818)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q11">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×8</span> <b>Q11</b> · π0、π0.5、π0.6／π*0.6 的差异是什么？KI 与 RECAP 怎样区分？</summary>
+
+**答**：π0 结合预训练 VLM 与 flow 动作专家；π0.5 侧重多源联合训练和开放场景泛化。π0.6 是后续基座，π*0.6 使用 RECAP，从示教、自主执行和人工纠正数据中做优势条件策略学习。KI 是控制连续动作专家梯度对 VLM 影响的训练方法，不等于完全冻结主干。π0.7 的官方发布日期是 2026-04-16，强调多样条件与组合泛化。
+
+**易错**：不能把 π0.6 基座与 π*0.6／RECAP 等同，也不能把优势条件化简写成“高质量 token 加权”；版本能力须按各自原文与实验设置说明。
+
+**核验**：[KI 原论文](https://arxiv.org/abs/2505.23705)、[RECAP 原论文](https://arxiv.org/abs/2511.14759)、[π0.7 官方说明](https://www.pi.website/blog/pi07)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×6</span> <b>Q12</b> · RDT-1B、Octo、GR00T-N1 都是 VLA，它们的动作头分别长什么样？哪种结构更"重"？</summary>
+
+**答**：
+| 模型 | 总参 | 动作头 | "重量" |
+|---|---|---|---|
+| **RDT-1B**（2024-10） | 1.2B | 整个 1.2B Transformer 当 **diffusion denoiser** | **最重** |
+| **Octo**（2024-05） | ~93M | 小 Transformer encoder + **小 diffusion head（~10M）** | **最轻** |
+| **GR00T-N1**（2025） | 2.2B | VLM 1.34B + **Action Expert 0.86B**（Flow Matching） | 中重 |
+
+**trade-off**：
+- Head 太轻（Octo）→ 多模态动作分布建模能力受限，复杂任务难。
+- Head 太重（RDT）→ 表达力强但推理慢、训练贵。
+- GR00T-N1 中庸路线，借鉴 π0 的 backbone + expert 拆分思路。
+
+**易错**：RDT-1B 不是"另一个 OpenVLA"——它没用 LLM token 离散化，直接 backbone 当 denoiser；这是与 OpenVLA / RT-2 范式不同的"端到端 diffusion VLA"。
+
+</details>
+
+<details class="qa" id="q13">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×6</span> <b>Q13</b> · FAST tokenizer 怎么结合 DCT 与 BPE？动作压缩率和推理加速是一回事吗？</summary>
+
+**答**：先归一化动作块，对各动作维的时间序列做 DCT，缩放并量化系数，按频率顺序展开，再用针对动作系数训练的 BPE 压缩重复模式。它利用动作的时间相关性，使自回归模型用较少 token 表达整段动作。作者报告典型每块 30–60 token；压缩率、失真和速度取决于数据、块长及实现。
+
+**易错**：论文的最高约 5 倍是训练加速；不能写成固定 5–10 倍推理加速，作者明确指出 π0-FAST 的 AR 推理比原 π0 的 flow 解码慢。
+
+**核验**：[FAST 作者说明](https://www.pi.website/research/fast)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q14">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×5</span> <b>Q14</b> · OpenVLA 如何把动作离散化为 256 个 bin？量化和动作解码有哪些局限？</summary>
+
+**答**：OpenVLA 将七维动作各自按训练数据的分位数范围归一化，再划分为 256 档，映射到动作 token，使用条件自回归分布训练。局限包括量化分辨率、超范围截断，以及连续动作块需要较多串行 token。量化误差须结合动作量程、控制接口和闭环容差评估；可比较连续动作头或压缩动作块。
+
+**易错**：categorical 分布可以有多个高概率峰；不能说“256 档就是单峰”。离散精度不足、解码选取和多模态建模是不同问题。
+
+**核验**：[OpenVLA 原论文](https://arxiv.org/html/2406.09246)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×4</span> <b>Q15</b> · RT-1 → RT-2 → RT-X 的演进逻辑是什么？每一代的关键创新是什么？</summary>
+
+**答**：
+- **RT-1**（2022）：EfficientNet + FiLM + Token Learner；**130K 真机数据**；首个 large-scale robot Transformer paradigm，但无 web 知识。
+- **RT-2**（2023）：PaLI-X 55B / PaLM-E 12B + 动作 token + **co-finetune（web + robot data）**；**首次把 web 知识灌入 robot policy**。
+- **RT-X**（2023-10）：RT-1 / RT-2 在 **Open-X-Embodiment**（~60 datasets / 22 embodiments / 1M+ trajectories）上跨形态训练（实验用 robotics mixture 子集），验证跨 embodiment 泛化。OpenVLA 后续用 OXE 中约 **970K** curated demos 微调。
+
+**主线**：RT-1 证 paradigm → RT-2 引 web 先验 → RT-X 验证联合训练。OpenVLA 是 RT-X 路线的开源版。
+
+**易错**：RT-2 核心是 **co-finetune** 引入 web 数据，不是"放大版 RT-1"。
+
+</details>
+
+<details class="qa" id="q16">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>Q16</b> · π0 用的是哪个 VLM backbone？为什么选 PaliGemma 而不是 Llama？</summary>
+
+**答**：原始 π0 以 PaliGemma 的预训练视觉语言主干为基础，连接较小的 flow-matching 动作专家。PaliGemma 本身由 SigLIP 视觉编码器和 Gemma 语言模型组成，能提供已有视觉语义能力，并兼顾计算成本。这是论文的架构选择，不能据此断言所有 Llama 系模型都不适合机器人。
+
+**易错**：PaliGemma 权重采用 Gemma 条款，不能写成 Apache 2.0；动作按 50 Hz 执行也不代表 VLM 每 20 ms 完整推理一次。
+
+**核验**：[π0 原论文](https://arxiv.org/abs/2410.24164)、[Google PaliGemma 模型说明](https://google-research.github.io/big_vision/big_vision/configs/proj/paligemma/)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q17">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>Q17</b> · π0 里 Action Expert 的 300M 参数为什么单独拆出来？和 backbone 怎么交互？</summary>
+
+**答**：原始 π0 给动作 token 配置较小的专用 Transformer 权重，用 flow matching 学习连续动作块；视觉语言与动作部分通过注意力交互。推理先编码观测条件，再迭代更新带噪动作。分离参数有助于平衡预训练知识与动作生成的计算需求，但不意味着两个独立模型各训各的。
+
+**易错**：原始 π0 不能统一描述成“冻结主干或 LoRA”，也不应把后续 KI 的梯度隔离倒写为原架构机制；块长、动作执行频率与重规划频率须分开。
+
+**核验**：[π0 原论文](https://arxiv.org/abs/2410.24164)、[Knowledge Insulation 原论文](https://arxiv.org/abs/2505.23705)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+---
+
+## §3 Diffusion Policy / Flow Matching（6 题）
+
+> 动作分布建模的两条主流路线；π0 系列让 Flow Matching 从理论走到工业落地。
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×11</span> <b>Q18</b> · Diffusion Policy 怎么把动作建模成"去噪过程"？相比 BC 直接回归动作有什么优势？</summary>
+
+**答**：**建模**：把动作分布 $\pi(a \mid s)$ 用 score-based diffusion 建模。
+- **训练**：在专家动作 $a^*$ 上加噪 $a_\tau = \sqrt{\bar\alpha_\tau} a^* + \sqrt{1-\bar\alpha_\tau}\,\varepsilon$，学噪声预测器 $\varepsilon_\theta(a_\tau, \tau, s)$。
+- **推理**：从 $\varepsilon \sim \mathcal{N}(0, I)$ 起，反向 SDE/ODE 逐步 denoise 到 $a$（DDPM 50 步 / DDIM 10-20 步）。
+
+**vs BC 优势**：
+1. **多模态分布**：BC 回归会"平均"多专家路径输出"中间"不可执行动作；diffusion 显式建模多峰。
+2. **chunk 一次生成**：天然支持 K 步动作 chunk（去噪整段而非单步）。
+3. **长尾任务更稳**：噪声扰动训练相当于隐式数据增强。
+
+**缺点**：① **推理慢**（10-50 step），高频控制需并行/蒸馏；② 训练目标对噪声调度敏感。
+
+**易错**：Diffusion Policy 不是"在 BC loss 上加噪声"，是完全不同的 score-based 框架。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×10</span> <b>Q19</b> · π0 为什么用 Flow Matching 而不是 Diffusion？50 Hz 控制频率背后的工程考量是什么？</summary>
+
+**答**：**Flow Matching 优点**：
+1. **训练更稳**：学速度场 $v_\theta$ 回归 $v^* = x_1 - x_0$，数值范围紧凑；diffusion 学 $\varepsilon$ 范围大、训练易抖。
+2. **推理步数少**：10 步 ODE 即可 vs DDPM 50 步；省去 cosine/linear schedule 超参。
+3. **路径显式**：$x_\tau = \tau x_1 + (1-\tau) x_0$，方差 $(1-\tau)^2 I$（不是 $(1-\tau) I$，常见笔误）。
+
+**50 Hz 工程考量**：控制频率 50 Hz（20 ms / step）由底层执行端按 chunk 消耗动作。H=50 = **覆盖时长** ≈1 秒；**重规划频率**由 execution horizon / temporal ensemble / 异步队列决定，不是固定 1 Hz。
+
+**易错**：50 Hz = 控制频率，H=50 = 覆盖时长，两者不要混成"每秒重算一次 chunk"。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×8</span> <b>Q20</b> · Diffusion 和 Flow Matching 有什么本质区别？为什么 Flow Matching 在机器人上越来越流行？</summary>
+
+**答**：**本质区别**：
+| | Diffusion | Flow Matching |
+|---|---|---|
+| 数学框架 | **SDE** 前向加噪 + 反向去噪 | **ODE** 沿运输路径走 |
+| 学习目标 | 噪声 $\varepsilon$ 或 score $\nabla \log p_\tau$ | **速度场** $v_\theta$ |
+| 路径定义 | 由 SDE 调度（cosine/linear）决定 | **显式给出** $x_\tau = \tau x_1 + (1-\tau) x_0$ |
+| 推理 | SDE 求解器（慢） | ODE 求解器（快） |
+
+**机器人流行原因**：
+1. **推理快**：10 ODE step vs 50 SDE step，高频控制可行。
+2. **训练稳**：速度场数值范围紧凑，loss 不爆炸。
+3. **超参少**：无需选 cosine/linear 调度。
+4. **理论统一**：Diffusion 是 FM 的特例（特定路径下）。
+
+**易错**：FM 不是 Diffusion 的"加速版"，是更通用框架；Diffusion 可看作 FM 在特定路径上的实例。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×6</span> <b>Q21</b> · Diffusion Policy 推理时用 DDPM 还是 DDIM？步数怎么选才能既快又准？</summary>
+
+**答**：**训练同一 $\varepsilon_\theta$**，部署时按需选采样器。
+
+- **DDPM**：reverse SDE，**stochastic**，50+ step；高质量但慢；适合离线生成/训练监督。
+- **DDIM**：reverse ODE，**deterministic**，10-20 step 可达 DDPM 50 步质量；适合实时机器人。
+
+**步数选择**：
+- 实时 50 Hz 控制 → DDIM 10 步（≈ 20 ms / chunk）。
+- 离线评估 / 高质量生成 → DDPM 50 步。
+- 一般任务 → DDIM 20 步是甜区。
+
+**DDIM 早期 OOD 坑**：DDIM 在去噪**早期步**（$\tau$ 接近 1，即接近纯噪声）对 OOD 状态敏感，可能输出非平滑动作；Reactive DP / 调度优化可缓解。
+
+**易错**：DDIM 不是"绝对不如 DDPM"——它在 chunk 中段/后段表现一致，只是早期 OOD 步需要小心。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>Q22</b> · ACT 和 Diffusion Policy 各自适合什么任务？硬件 / 任务复杂度上谁更稳？</summary>
+
+**答**：
+| | ACT | Diffusion Policy |
+|---|---|---|
+| 结构 | CVAE + Transformer | Diffusion 模型 |
+| 推理 | 单 forward（快） | 10-50 step（慢） |
+| 多模态 | 通过 latent z 建模 | 天然多模态 |
+| 适合任务 | **精细 manipulation**（插针、烹饪、ALOHA） | **多解 / 长程任务**（推杆、堆叠、避障） |
+| 硬件 | 单卡可跑实时 | 需并行解码或蒸馏 |
+
+**口诀**：**"ACT 出拳快，DP 内功深"**。
+
+**选择**：
+1. 任务有多专家路径（多解）→ DP。
+2. 任务单解但精度高 → ACT。
+3. 实时 50 Hz 严苛 → ACT。
+4. 多任务通用 backbone → DP（配合并行加速）。
+
+**易错**：DP 不是"通用更好"；在 ALOHA 一类精细任务上 ACT 仍是 SOTA 之一。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×3</span> <b>Q23</b> · Reactive Diffusion Policy / Slow-Fast Diffusion Policy 是怎么解决 DP 推理慢的？</summary>
+
+**答**：**问题**：DP 推理 10-50 step，高频接触控制不可行。
+
+**Reactive Diffusion Policy（RDP）**：双层架构——**slow planner**（重型 visual-tactile diffusion，低频生成 chunk）+ **fast reactive policy / controller**（轻量、高频，根据实时触觉/力觉做微调）。针对接触丰富任务，关键是低延迟反馈。
+
+**Slow-Fast Diffusion Policy**：思路类似——slow 大模型离线/低频生成动作 chunk 候选，fast 小 policy 在线选择 + 调整；与双系统 VLA 的"S1 / S2"同构。
+
+**共同思路**：把"慢的多模态生成"和"快的反应执行"解耦，重 DP 推理移到低频通路，高频通路用轻量 head；接触任务上比纯 DP 显著更稳。
+
+**易错**：RDP 不只是"并行去噪 / streaming"——核心是 slow planner + fast reactive controller 的双层；模型权重也分两套。
+
+</details>
+
+---
+
+## §4 Action Chunking & ACT（4 题）
+
+> 一次预测多步动作是 IL 长程任务的关键；ACT 是 ALOHA 团队的范式，π0 / OpenVLA 都借鉴。
+
+<details class="qa" id="q24">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×10</span> <b>Q24</b> · 什么是 Action Chunking？为什么 VLA 要预测一个动作 chunk 而不是单步动作？块大小怎么选？</summary>
+
+**答**：策略一次预测未来一段动作，显式建模动作间的时间关系。执行时可以整块执行，也可以只执行前几步再重规划，或融合多次预测的重叠部分。块越长，通常越能摊销调用成本，但反馈反应可能变慢；实际调用频率取决于执行时域，不能只看预测块长。
+
+**易错**：ACT 的 temporal ensembling 每个控制步都查询；原论文真机设置用过 k=100。不存在通用的 4–16“甜区”，也没有固定 K 倍推理加速。
+
+**核验**：[ACT 原论文](https://arxiv.org/html/2304.13705)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q25">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×8</span> <b>Q25</b> · ACT（Action Chunking with Transformers）的结构是什么？它用 VAE / CVAE 解决了什么问题？</summary>
+
+**答**：原始 ACT 是条件 VAE 与 Transformer 策略：训练时后验编码器从关节状态和示教动作块推断潜变量 z；策略以相机图像、当前关节状态和 z 为条件，用 k 个位置查询并行预测动作序列，以重建损失和 KL 正则训练。推理移除的是后验编码器，视觉编码仍保留，并将 z 置零。
+
+**易错**：原始 ACT 不默认输入文本指令，也不是自回归生成动作；z=0 是潜变量的确定性取值，不保证对应某条专家轨迹或动作分布的众数。
+
+**核验**：[ACT 原论文](https://arxiv.org/html/2304.13705)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q26">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×7</span> <b>Q26</b> · 模仿学习里"复合误差"指什么？Action Chunking 是怎么缓解它的？理论解释是什么？</summary>
+
+**答**：BC 在专家状态上训练，但部署中的小误差会使策略进入未见状态，后续错误继续放大；经典最坏情形下累计代价差可随任务时域二次增长。动作块联合预测一段行为，可能缩短有效决策时域并保持时序一致性，ACT 实验中能缓解复合误差。
+
+**易错**：块内开环执行仍会受扰动和模型误差影响；不能直接把理论界中的 T 换成 T/K 就宣称误差降阶，更不能保证 chunk 内不累积偏差。
+
+**核验**：[ACT 原论文](https://arxiv.org/html/2304.13705)、[DAgger 原论文](https://proceedings.mlr.press/v15/ross11a.html)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q27</b> · ACT 推理时把 z 固定为 0 有什么局限？为什么不随机采样？KL 权重 β 怎么调？</summary>
+
+**答**：**$z = 0$ 的局限**：取 prior 的 mode → 在多模态任务上退化为"代表性单解"路径，丢失探索性；如果训练分布里多策略权重接近，$z = 0$ 可能落在"平均路"附近，物理仍不可执行。
+
+**为什么不随机采样 $z \sim \mathcal{N}(0, I)$**：连续步骤独立采样 → 策略不连续（前 1 秒走左、后 1 秒走右）。解法是 **chunk 边界冻结 $z$**（同一 episode 内固定）或 **temporal ensemble** 平均；纯随机采样实务上比 $z = 0$ 还差。
+
+**KL 权重 β 调参（β-VAE 视角）**：
+- β 过大 → **posterior collapse**，$z$ 失活（编码器输出近 $\mathcal{N}(0, I)$，无信息），decoder 退化为 MSE。
+- β 过小 → $z$ 太"任性"，推理 $z = 0$ 不再"代表性"。
+- ACT 实务：β 取 $\sim$10 或更小；动作 reconstruction loss 权重 1.0；常监控 KL 项是否近 0（collapse 信号）。
+
+**易错**：KL collapse 是 ACT 训练最常见陷阱——KL → 0 不等于"训练好了"，是 latent 失活；要看 reconstruction 是否真的依赖 $z$。
+
+</details>
+
+---
+
+## §5 视觉-语言对齐 & 数据（7 题）
+
+> Open-X 是 VLA 走通的数据基石；视觉编码器选择决定空间几何能力上限。
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×8</span> <b>Q28</b> · 介绍一下 Open-X-Embodiment 数据集，它解决了什么问题？数据多样性对 VLA 泛化的影响？</summary>
+
+**答**：**Open-X-Embodiment（OXE）**：2023-10 Google 联合 21 个 lab 发布，约 **60 个数据集 / 22 种 embodiment / 1M+ 轨迹**（OpenVLA 训练用其中 curated **~970K** 子集）。是迄今最大的跨实验室、跨形态机器人数据集。
+
+**解决的问题**：
+1. **单 lab 数据量太小**（< 100K），scale 不起来。
+2. **跨形态无数据**：每 lab 用不同机器人，无法对比/合并。
+3. **任务覆盖窄**：单数据集多为 pick & place，缺多样性。
+
+**对 VLA 泛化的影响**：
+- RT-X 论文实证：在 OXE 上联合训练比单数据集训练，跨场景成功率显著提升。
+- 数据多样性（任务 / 场景 / embodiment）比数据量本身更关键。
+- OpenVLA / π0 都以 OXE 为预训练基础。
+
+**易错**：OXE ≠ 一个统一格式的数据集，是 ~60 个原始数据集 + RLDS 统一接口；动作空间标准化到 7 维末端 + gripper（不足补 0）。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×7</span> <b>Q29</b> · OpenVLA 的视觉编码器为什么用 SigLIP + DINOv2 双路融合？只用 CLIP 行不行？</summary>
+
+**答**：**SigLIP** 与 **DINOv2** 各有所长：
+- **SigLIP**（image-text contrastive）：偏**语义**（"杯子" → 杯子图像），对自然语言强对齐。
+- **DINOv2**（自监督）：偏**空间几何**（深度、表面纹理、空间结构），对场景结构敏感。
+
+**双路融合**：两个编码器各出 patch tokens，**channel-wise concat**（不是 cross-attention），喂给 LLM。
+
+**只用 SigLIP 不行**：
+1. SigLIP / CLIP 对**空间几何弱**——能识别"杯子"但不知"杯子距夹爪 5 cm 偏左"。
+2. 机器人操作高度依赖空间推理（抓取位姿、避障）。
+3. **Prismatic VLM** 论文实证：双路 > SigLIP > DINOv2 > CLIP，在 robotics benchmark 上差距明显。
+
+**易错**：双路融合不是 ensemble，是同时给 LLM 输入两套 tokens；LLM 自己学如何用。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×5</span> <b>Q30</b> · VLM 和 VLA 的区别是什么？VLA 多了什么模块？token 化方案怎么变？</summary>
+
+**答**：
+| | VLM（Vision-Language Model） | VLA（Vision-Language-Action） |
+|---|---|---|
+| 输入 | 图像 + 文本 | 图像 + 文本指令 + 历史 proprio |
+| 输出 | 文本 token | **动作**（连续 / 离散 token） |
+| 训练数据 | web 图文 | web + **机器人轨迹** |
+| 多出模块 | — | **Action head**（离散 token 或 Flow Matching 头） |
+
+**Token 化方案**：
+- VLM：仅 text token（如 32K vocab）。
+- VLA：text token + **action token**——
+  - 离散方案（RT-2 / OpenVLA）：每维动作 256 bin，复用 LLM 词表最不常用 256 token；一步 7 维 = 7 token。
+  - 连续方案（π0 / RDT）：action 不 token 化，直接由独立 Action Expert（Flow Matching / Diffusion）输出。
+  - FAST：DCT + BPE 把 chunk 压成更少 token，介于两者之间。
+
+**易错**：VLA 不是 "VLM 加个 head" 就完事——训练时要 co-finetune 机器人数据，否则 VLM 在动作分布上零样本不行。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>Q31</b> · 多模态对齐里 Q-Former、projection、cross-attention 这几种 connector 的区别？</summary>
+
+**答**：**Connector** = 把视觉特征对齐到 LLM 输入空间的模块。
+
+| Connector | 代表 | 机制 | token 数 |
+|---|---|---|---|
+| **Projection** | LLaVA | MLP 直接映射 patch → token | = patch 数（多） |
+| **Q-Former** | BLIP-2 | 可学 query 通过 cross-attn 提取关键视觉特征 | **可压缩**（少） |
+| **Cross-Attention** | Flamingo | 在 LLM 每层插 cross-attn 与视觉特征交互 | 不增 input token，但**改 LLM 结构** |
+
+**VLA 实务**：
+- **Projection（OpenVLA / Prismatic）**：简单、稳；token 数多（256-576 / 图）但 LLM 能扛。
+- **Q-Former**：复杂、训练不稳；VLA 上较少用。
+- **Cross-Attention**：需改 LLM 架构；不便于直接用现成 VLM 权重。
+
+**易错**：Q-Former 不是"更先进"——LLaVA 系列证明 projection 简单 + 数据多反而更好。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q32</b> · DROID 和 Bridge 数据集的特点分别是什么？它们和 Open-X 是什么关系？</summary>
+
+**答**：
+- **Bridge / BridgeData V2**（2023）：多场景多任务，约 **60K 轨迹**；早期跨任务 IL 基础数据集；任务集中在 pick & place + 简单 manipulation。
+- **DROID**（2024）：约 **564 个场景 / 350 小时 / 76K demonstrations / ~86 tasks**（arXiv 摘要写 84，项目页 86，版本口径差异）；多样性 SOTA，被誉为"野外"机器人数据集。
+
+**Open-X 关系**：**Bridge V2 是 OXE 子集**；**DROID 不在 OXE 原始发布的约 60 个数据集中**——OXE（2023-10）早于 DROID（2024）发布，但二者常被联合用于后续训练 / fine-tune。
+
+**训练用法**：
+- OpenVLA / π0：先在 OXE 上预训练（含 Bridge 等）。
+- DROID 常作为后续大规模 fine-tune 源（场景泛化）。
+- Bridge 常作为评估 baseline。
+
+**易错**：DROID 不是"OXE 子集"——它是后续发布、独立维护的数据集；常与 OXE 联合用但出处不同。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q33</b> · 怎么解决 VLA 训练里"多任务相互干扰 / 灾难性遗忘"？跨域联合训练怎么做？</summary>
+
+**答**：**现象**：fine-tune VLA on task A 后，task B 性能掉；或 web 知识被动作微调"洗掉"。
+
+**解法**：
+1. **LoRA** — 冻结大部分参数，只训低秩适配；保留预训练知识。
+2. **Co-training（联合训练）** — 把所有任务 / 多数据集混训，共享 backbone；OpenVLA 在 OXE ~60 datasets 上的做法。
+3. **Rehearsal** — 持续学习时保留旧任务数据，定期 replay 防遗忘。
+4. **KI（Knowledge Insulation，π0.5）** — 隔离 VLM 与 Action Expert 的梯度，VLM 不被动作训练污染。
+5. **Task-conditional LoRA** — 每任务一组 LoRA 权重，推理时按 task ID 加载。
+
+**跨域联合训练**：① 按比例采样（按 dataset 大小开根号防大数据集 dominate）；② Embodiment token 告诉模型当前数据集；③ Action 标准化到统一 7 维末端 + gripper（不足补 0）。
+
+**易错**：LoRA 不能完全避免遗忘——LoRA 矩阵也会"污染"前向；真正抗遗忘还需配合 KI 或 frozen backbone。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q34</b> · 跨 embodiment 训练（手臂数不同 / 自由度不同）怎么对齐动作空间？Octo / RT-X 怎么做的？</summary>
+
+**答**：**问题**：不同机器人 DoF 不同（**7-DoF Franka/Panda**、**6-DoF UR5e**、**14-DoF ALOHA 双臂**、**16-DoF Mobile ALOHA**）。
+
+**RT-X / OpenVLA（单臂主流）**：canonicalize 到 **7 维 end-effector** [Δx, Δy, Δz, Δroll, Δpitch, Δyaw, gripper]——不同关节配置通过 IK 映射到同一末端空间。
+
+**双臂 / 移动**：保留原维度（14 / 16），用 **embodiment-specific action head** 或 **padding mask** 兼容；**不能截断到 7D**，否则丢第二臂或底盘动作。
+
+**Octo**：可变长 action token + padding mask。
+
+**关键技巧**：① embodiment-conditional token 告诉模型形态；② 动作按数据集 1%-99% 分位归一化；③ dataset 按大小开根号采样。
+
+**易错**：单臂场景才能 7D canonicalization；双臂/移动需 embodiment-specific head + mask。
+
+</details>
+
+---
+
+## §6 推理优化 & 控制频率（6 题）
+
+> VLA 落地最大瓶颈是推理速度——50 Hz 控制频率把 6 Hz 的 OpenVLA 卡在实验室。
+
+<details class="qa" id="q35">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×9</span> <b>Q35</b> · 原始 OpenVLA 推理的瓶颈是什么？怎样评价优化后的速度和控制效果？</summary>
+
+**答**：先区分视觉编码、prefill、逐 token 解码、动作头与数据传输的耗时。原始 OpenVLA 的串行动作 token 生成会限制低延迟控制；OFT 通过并行解码、动作块和连续回归改变这一瓶颈。量化、编译和缓存可进一步优化，但必须在目标输入、设备和控制接口下测量成功率与延迟。
+
+**易错**：“6 Hz”不是模型常数；报告硬件、精度、动作块长、推理调用频率和动作执行频率。吞吐提高不代表端到端延迟等比例下降。
+
+**核验**：[OpenVLA-OFT 作者页](https://openvla-oft.github.io/)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q36">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×5</span> <b>Q36</b> · 如果模型推理只能跑 5 Hz 而机器人需要 50 Hz 控制，怎么办？说说工程方案。</summary>
+
+**答**：先区分策略调用频率与动作执行频率。策略可一次预测动作块，控制器按更快周期执行；执行部分动作后重新观测，平衡反应性与推理开销。异步方案让旧块执行与新块生成重叠，但需处理推理期间已执行的前缀和切块连续性。RTC 将此建模为动作补全，让新预测衔接已承诺的动作。
+
+**易错**：插值或简单平均不能补回缺失反馈，也不保证切块可行；需测端到端延迟、状态陈旧度、约束与任务成功率。
+
+**核验**：[RTC 作者说明](https://www.pi.website/research/real_time_chunking)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>Q37</b> · LoRA 微调一个 VLA 有哪些注意点？冻结哪部分？为什么 OpenVLA 推荐 LoRA？</summary>
+
+**答**：**LoRA**：在 attention 的 $Q/K/V/O$ 矩阵上加低秩适配 $\Delta W = BA$（$r \ll d$）。
+
+**冻结策略**（VLA 实务）：
+- **全冻结**：视觉编码器（SigLIP / DINOv2）+ LLM backbone。
+- **训练**：LoRA 矩阵 + **action head**（含 Action Expert 等）+ optional 视觉 projector LoRA。
+
+**超参经验**：
+- rank $r$ = 4-16；
+- alpha = $2r$（缩放因子）；
+- 学习率 1e-4 ~ 5e-4；
+- 目标模块：attention 的 $Q, K, V, O$（不一定全加）。
+
+**OpenVLA 推荐 LoRA 原因**：
+1. **消费级硬件友好**：7B 全参微调需 8×A100；LoRA 单 4090（24 GB）可微调。
+2. **不破坏 web 知识**：大部分参数 frozen，VLM 通识保留。
+3. **社区迭代快**：每任务 ~MB 级 LoRA 权重，易共享。
+4. **可组合**：多任务 LoRA 可加权组合。
+
+**易错**：LoRA rank 不是越大越好；rank 太大 = 全参微调，丢了"防遗忘"的优势。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q38</b> · PaliGemma 为什么用 prefix-LM 注意力（图像 token 互看，动作 token 因果）？</summary>
+
+**答**：**Prefix-LM attention**：
+- **Prefix 部分**（图像 token + 系统 prompt）：**bidirectional**，互相可见。
+- **Suffix 部分**（生成 / 动作 token）：**causal mask**，只能看前面。
+
+**对比**：
+- 纯 **causal LM**（GPT 风格）：所有 token 都因果；图像 token 只能看到自己之前的，视觉理解受限。
+- 纯 **bidirectional**（BERT 风格）：不能 AR 生成。
+- **Prefix-LM**：兼顾——图像 token 间信息充分流通，生成 token 仍是 AR。
+
+**对 VLA 的价值**：
+1. 图像 patch token 互相可见 → 空间推理更强。
+2. 动作 token 因果 → 仍是 AR 解码，与 LLM 训练范式兼容。
+3. π0 借鉴此设计：visual + text prefix（双向） + action token（因果）。
+
+**易错**：Prefix-LM 不是"所有 token 都双向"——只有 prefix 部分双向；suffix 仍是 causal，否则没法 AR 生成。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×3</span> <b>Q39</b> · OpenVLA-OFT 加速 VLA 的三大关键设计是什么（并行解码 / 连续动作 / L1 回归）？</summary>
+
+**答**：**OFT recipe** = **parallel decoding + action chunking + continuous actions + L1 regression**（OpenVLA-OFT, arXiv:2502.19645）。
+
+1. **Parallel Decoding**：抛弃 AR 串行（原 OpenVLA: 7 token/步），一次 forward 同时出 chunk 全部 $K \times 7$ 个动作分量（[ACTION] 占位 + bidirectional attention）。
+2. **Action Chunking**：与 parallel 协同放大加速。
+3. **Continuous Action Head**：放弃 256-bin，小 MLP 直接回归连续动作，无量化误差。
+4. **L1 Loss**：比 L2 对 outlier / 噪声专家动作更鲁棒。
+
+**论文报告**：action 生成吞吐 ≈ **26×**、单 step latency ≈ **3×** 改善；精度也提升。
+
+**易错**：OFT 重训了 action head，不能直接套用 OpenVLA checkpoint。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q40</b> · OpenVLA 输出是离散 token，怎么在推理时还原成连续动作？反量化误差怎么处理？</summary>
+
+**答**：**还原流程**：
+1. LLM 输出动作 token → 查表得 bin index $i \in [0, 255]$。
+2. **Bin 中心还原**：每维动作在训练集 1%-99% 分位区间等分 256 bin，token $i$ → bin 中心值 $\hat{a}_{\text{norm}} = -1 + (i + 0.5)/256 \times 2$。
+3. **反归一化**：用训练集的 $(\min, \max)$ 还原到物理量纲 $a = \hat{a}_{\text{norm}} \cdot (\max - \min)/2 + \text{mid}$。
+
+**反量化误差**：
+- 每维 ~ $1/256 \approx 0.39\%$ 量程；
+- 在 ±10 cm 末端位置上 ≈ 0.78 mm 精度；
+- 对粗操作够用，对插针 / 拧螺丝（< 0.1 mm）不够。
+
+**处理方法**：
+1. 任务允许就直接用。
+2. 高精度任务换 OpenVLA-OFT 连续头。
+3. 加 **PID / impedance** 后端 closed-loop 兜底（模型出 desired，控制器精确跟踪）。
+
+**易错**：256 bin 不是"够细"，是 VLM 复用的权衡；精度需求高必须换连续头。
+
+</details>
+
+---
+
+## §7 Sim2Real（2 题）
+
+> 卷四（世界模型 / Sim2Real）会展开；这里只覆盖 VLA 落地视角的高频题。
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×6</span> <b>Q41</b> · Domain Randomization 是什么？在 VLA / Sim2Real 中怎么用？有哪些常见随机化维度？</summary>
+
+**答**：**Domain Randomization（DR）**：训练时**随机化仿真参数**，强迫 policy 在分布外参数下仍鲁棒；本质是数据增强 + 隐式 domain adaptation。
+
+**核心理念**：让仿真分布 **覆盖** 真实分布，policy 在 sim 上鲁棒 = 在真机也鲁棒。
+
+**常见维度**：
+| 类别 | 随机化项 |
+|---|---|
+| **视觉** | 纹理、光照、相机内外参、背景、颜色 |
+| **物理** | 质量、摩擦系数、关节阻尼、外力扰动、重力 |
+| **控制** | 动作延迟、控制器增益、动作噪声 |
+| **传感器** | IMU 偏置、相机噪声、关节编码器分辨率 |
+
+**VLA / Sim2Real 用法**：
+1. Sim 大规模 DR 训练（pretrain）；
+2. 真机 demos fine-tune（domain adaptation）；
+3. 与 **RMA** 配合：RMA 引入 latent 编码当前 domain，online 推断；DR + RMA 比纯 DR 强。
+
+**易错**：DR 不是"越多越好"——过强会使任务无解，训练发散；需 curriculum（先弱后强）。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×5</span> <b>Q42</b> · Sim-to-Real Gap 主要来自哪？怎么缩小？在你项目里是怎么处理的？</summary>
+
+**答**：**Gap 来源**：① 视觉（渲染 vs 真实噪声/光照）；② 物理（摩擦/接触/软体/关节弹性仿不准）；③ 控制（仿真无延迟 vs 真机 5-20 ms 延迟）；④ 传感器（IMU 漂移、力觉噪声）。
+
+**缩小方法**：
+1. **DR**（sim 端扩分布）；
+2. **System ID**（真机数据校准仿真参数）；
+3. **Real-world fine-tune**：sim 预训练 + 真机 200-500 demos 精调（最稳）；
+4. **Visual transfer**（GAN / NeRF 渲染 photo-realistic）；
+5. **Privileged + Distillation**（sim 用真值训，蒸馏给只用图像的 student，RMA 思路）。
+
+**项目实务**：Isaac Gym + DR 预训练（~100 GPU 小时）→ 真机 ~300 demos fine-tune（~1 小时）。
+
+**易错**：sim 训好不能直接用；真机 fine-tune 几乎必须，差异只是 demos 数量。
+
+</details>
+
+---
+
+## §8 双系统 / 系统观 / 前沿判断（10 题）
+
+> L2/L3 开放讨论题；二面 / 终面常考。N1/N2/N4 来自顶级 lab 教授小红书 AMA，破例入选。
+
+<details class="qa">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×6</span> <b>Q43</b> · 双系统（System 1 / System 2）VLA 是什么思路？解决了什么问题？快慢系统怎么协同？</summary>
+
+**答**：源自 Kahneman 双系统理论：S1 直觉快、S2 推理慢。
+
+**VLA 映射**：
+- **System 1**：小模型（< 1B），**50-100 Hz**，执行 atomic skills。
+- **System 2**：大 VLM（3-10B），**1-5 Hz**，做高层任务分解 / 推理 / 重规划。
+
+**协同**：① S2 → S1 输出语义子目标（"抓杯子"）或 latent goal；② S1 检测异常 / 完成 → trigger S2 重规划；③ S2 在 S1 执行间隙异步推理，streaming 喂给 S1。
+
+**代表**：Figure Helix、GR00T-N1、FiS、Hume。
+
+**解决**：单端到端 VLA 无法同时满足"long-horizon planning + high-freq control"——双系统兼顾推理深度 + 控制频率。
+
+**易错**：双系统是**分工 + 异步**，不是集成学习；S1 / S2 是完全不同的模型，频率差 10-50×。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>Q44</b> · 谈一下 VLA 在自动驾驶里的两种范式（模仿学习派 vs 模拟器 RL 派）的优劣？</summary>
+
+**答**：
+| | 模仿学习派 | 模拟器 RL 派 |
+|---|---|---|
+| 代表 | Tesla FSD、小鹏 XNGP、Wayve | Waymo（部分）、CARLA 研究 |
+| 数据源 | **海量真人驾驶视频** | 仿真器 rollout |
+| 训练 | BC / VLA 端到端 | RL（PPO / SAC） |
+| 优点 | scale 好；数据现成 | 可控、安全、可枚举边界场景 |
+| 缺点 | 长尾安全难（demos 不覆盖罕见事件） | Sim2Real gap 严；仿真行为模型不真 |
+
+**主流**：当前模仿学习派**规模化能力更强**（Tesla / 小鹏量产）；但安全和长尾上 hybrid 仍是趋势——主体 IL + 关键场景 RL 兜底。
+
+**与机器人 VLA 区别**：
+- 自动驾驶动作维度小（2-4 维：转向 + 油门 + 刹车）；机器人 7-16+ 维。
+- 自动驾驶任务结构化（道路 / 路标 / 信号灯），机器人开放场景。
+- 自动驾驶决策周期长（秒级），机器人毫秒级。
+
+**易错**：自动驾驶 VLA 和机器人物理操作 VLA 是**两个赛道**，技术栈重叠但落地路径完全不同。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×3</span> <b>Q45</b> · 为什么"缺乏实机经验的多模态大模型研究"在具身岗竞争力有限？VLA 求职者除了懂模型还要懂什么？</summary>
+
+**答**：**核心矛盾**：纯模型研究者擅长 sim / dataset SOTA，但具身岗的真正需求是**"模型 + 系统 + 落地"三栖人才**。
+
+**真机部署的隐藏成本**：
+1. **控制频率约束**——50 Hz 控制 + 6 Hz 推理怎么协调。
+2. **硬件接口**——ROS / 自研 SDK / EtherCAT 通讯。
+3. **数据采集 pipeline**——teleop / VR / kinematic retargeting。
+4. **长程任务稳定性**——多步串联时累积误差。
+5. **安全机制**——力限 / 紧急停止 / 错误恢复。
+
+**求职者要懂**：
+1. **真机数据采集**（teleop 至少跑通一次）。
+2. **部署 pipeline**（ROS 基础 + 至少一种实时通讯）。
+3. **控制基础**（PID / impedance / MPC 概念）。
+4. **至少一个 closed-loop 真机 demo**（哪怕是 LeRobot 复现的简单任务）。
+
+**面试官的潜台词**：能不能让模型在真机上跑起来 ≠ paper SOTA。
+
+**易错**：在简历里写"OpenVLA / π0 实现"但没真机验证，面试官会重点拷打你的 demo 视频。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×3</span> <b>Q46</b> · VLA 的 scaling law 存在吗？数据 / 模型 / 算力哪个维度最难 scale？</summary>
+
+**答**：**现状**：**没有公认的 robot scaling law**——曲线远不如 LLM Chinchilla 清晰。
+
+**论据**：
+- RT-2（55B）比 OpenVLA（7B）提升幅度有限；
+- 数据量（OXE 970K）远小于 LLM 训练量（10T+ tokens）；
+- closed-loop 评估稀缺，scaling 曲线难稳定测量。
+
+**最难 scale 的维度**：
+1. **数据 >> 模型 >> 算力**——
+2. **数据**：① 真机数据采集 1 人 1 天 100 demos，scale 到 10M+ 需上千人年；② 跨 embodiment / 任务多样性是数据，不是数量；③ 缺乏 self-supervised pretrain 路径（视频是 action-free）。
+3. **模型**：参数好加，但小模型 + 多数据当前回报更高。
+4. **算力**：单次训练成本可控（OpenVLA 数千 GPU 小时）；瓶颈在数据。
+
+**关键观察**：scaling 的回报在 **"跨 embodiment / 跨任务"** 上比 "单任务参数量" 明显——这是为什么 OXE 比 single-lab 数据有用。
+
+**易错**：不要照搬 Chinchilla 20:1 token:param——机器人 token 信息密度远低于自然语言。
+
+</details>
+
+<details class="qa" id="q47">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×3</span> <b>Q47</b> · RECAP（π*0.6）的核心是什么？示教、自主执行与人工纠正怎样结合？</summary>
+
+**答**：RECAP 使用示教、自主执行与人工纠正数据，结合价值估计获得动作块的优势信号，用优势条件策略学习区分较好与较差行为；执行时选择较好优势条件生成动作。策略再收集经验与纠正，形成迭代改进。π*0.6 指经 RECAP 后训练的策略，应与 π0.6 基座区分。
+
+**易错**：不只是离线示教，也不是 reward-weighted regression 或默认 reward model 加 PPO；优势如何离散化、价值如何训练须依原文说明。
+
+**核验**：[RECAP 原论文](https://arxiv.org/abs/2511.14759)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×3</span> <b>Q48</b> · 现在的通用具身大模型（OpenVLA / π0 / GR00T）还差什么才能"落地"？说说你的判断。</summary>
+
+**答**：**核心差距 = 数据 > 模型 > 算力 > 评估**。
+
+**具体差距**：
+1. **数据规模**：OXE 970K 远不够覆盖家庭长尾；需 100M+ trajectories（约现量 100×）。
+2. **数据多样性**：场景多样性、任务多样性、长尾事件覆盖（罕见物体、突发干扰）。
+3. **推理速度**：6 Hz 不够工业 50 Hz；硬件加速 + 模型蒸馏待突破。
+4. **闭环评估**：sim 评估不靠谱；真机 benchmark 太贵；缺统一标准。
+5. **安全机制**：紧急停止 / 错误恢复 / 力觉异常未集成到端到端 VLA。
+6. **长程任务**：> 30 秒的多步任务稳定性差，需 hierarchical 或 World Model。
+7. **经济性**：单台机器人成本 + 训练成本 > 量产替代单价时才商用。
+
+**最难突破的是数据**——硬件 / 模型 / 算力都可"用钱解决"，数据靠人力时间无法压缩；这也是为什么 RoboNet / DROID / OXE 这种共享数据集是行业关键。
+
+**易错**：不要只说"模型还不够大"——这是 LLM 思维；具身的瓶颈一直在数据。
+
+</details>
+
+<details class="qa" id="q49">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×3</span> <b>Q49</b> · 端到端 VLA 与高层规划加低层技能如何取舍，系统接口要说明什么？</summary>
+
+**答**：先说明端到端的边界：模型可以从观测预测连续动作，也可由高层模型选择工具／技能再执行。前者减少手工接口，后者便于组合已有能力和局部恢复，但依赖状态、技能契约与结果验证。PyRUA-Lean 展示了将 VLA 等 primitives 纳入代码执行框架的具体方案；不能从个别论文推出唯一工业路线。
+
+**易错**：不要把“分层”简单等同于特定频率或任务时长；大模型、动作策略与控制器分别输出什么、怎样反馈才是比较重点。
+
+**核验**：[π0 原论文](https://arxiv.org/abs/2410.24164)、[PyRUA-Lean 原论文](https://arxiv.org/abs/2610.01939)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa" id="q50">
+<summary><span class="lv lv-l3">L3</span> <span class="freq" title="旧版记录 2 次，本轮未复核">历史低频·待核</span> <b>Q50</b> · 哪些情况下值得使用世界模型与规划？和直接学习动作策略有什么取舍？</summary>
+
+**答**：世界模型学习状态在动作作用下的变化，可用于预测、候选动作比较或想象轨迹训练。直接策略把计算更多集中在动作生成。选择取决于动力学可预测性、交互成本、任务时域、规划预算与模型误差；两者也能结合，例如动作条件潜在预测用于目标导向规划。需在相同数据和评测条件下比较。
+
+**易错**：潜在状态并不天然可解释；世界模型也可能累积误差，不能保证用固定十分之一数据解决所有任务或必然优于直接策略。
+
+**核验**：[V-JEPA 2 原论文](https://arxiv.org/abs/2506.09985)、[DreamerV3 原论文](https://arxiv.org/abs/2301.04104)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq" title="旧版记录 2 次，本轮未复核">历史低频·待核</span> <b>Q51</b> · 具身智能里"操作（manipulation）"和"运动控制（locomotion）"哪个落地更难？为什么操作是"前途无量"但卡点更多？</summary>
+
+**答**：
+| | Locomotion | Manipulation |
+|---|---|---|
+| 落地成熟度 | **已商用**（Boston Dynamics、宇树 Go2） | **实验室阶段**（少量量产） |
+| 物理建模 | 浮动基座动力学，仿真较准 | 接触 / 摩擦 / 软体物，仿真极难 |
+| 数据稀缺度 | 中（步态数据有共性） | **极高**（每类操作都需新数据） |
+| 闭环反馈 | IMU + 关节位置足够 | 需视觉 + 力觉，多模态对齐难 |
+| 任务多样性 | 行走 / 跳跃 / 跑步 | **几乎无限**（抓 / 放 / 拧 / 插 / 切...） |
+
+**Locomotion 已是"基础设施"**：Sim2Real + RL 是成熟 pipeline；Unitree、宇树等量产；技术风险已收敛。
+
+**Manipulation 是"前途无量但卡点多"**：
+- 卡点：物体多样、接触建模难、数据稀缺、长尾任务无穷。
+- 前途：家庭服务 / 工业精细装配 / 医疗 / 物流的核心。
+
+**求职建议**：
+- 想长期需求大 → **Manipulation**（容量未饱和）。
+- 想短期商用 → **Locomotion**（已成熟，需求集中在工程优化）。
+
+**易错**：Locomotion 不是"简单"——只是"已知怎么做"；Manipulation 是"前沿但慢"。
+
+</details>
+
+<details class="qa" id="q52">
+<summary><span class="lv lv-l2">L2</span> <span class="freq" title="旧版记录 2 次，本轮未复核">历史低频·待核</span> <b>Q52</b> · 多模态预训练怎样帮助具身泛化？它与 IL、RL、世界模型分别解决什么问题？</summary>
+
+**答**：先定义泛化维度：新物体、场景、指令、任务组合或本体。VLM 预训练能提供视觉语义先验，IL 和 RL 提供行为学习信号；二者组合是重要路线，但效果仍依赖训练覆盖和物理接口。动作条件世界模型、表征学习、规划与控制也能提高特定泛化能力，应在明确的未见分布上比较。
+
+**易错**：不能把“多模态大模型是唯一泛化路径”当定理；VLM、IL、RL 也不是互斥类别，预训练语义能力不自动保证精确控制。
+
+**核验**：[V-JEPA 2 原论文](https://arxiv.org/abs/2506.09985)、[π0 原论文](https://arxiv.org/abs/2410.24164)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+---
+
+## §A 项目拷打 / 工程实现（16 题）
+
+> 面试官会用项目题考察"系统观 + 真机经验"；答案要套用自己的项目讲，下面是标准答题框架。
+
+<details class="qa" id="q53">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×7</span> <b>Q53</b> · 强化学习和模仿学习如何结合？在你的项目里是怎么用的？</summary>
+
+**答**：常见组合包括用示教学初始策略，再通过交互与奖励改进；也可联合示教损失与 RL 目标，或从含演示的离线数据学习。具体做法依赖动作分布、可计算的概率、奖励和交互预算。RECAP 是优势条件策略路线，结合自主执行与人工纠正，不等同于统一套 PPO。项目回答应交代真实做过的组合、数据、对照和失败。
+
+**易错**：IL 与 RL 不是模型架构分类；不能保证混合后最稳，更不能把未做过的 BC→PPO 流程当自己的实践经历。
+
+**核验**：[RECAP 原论文](https://arxiv.org/abs/2511.14759)。本题频次沿用历史记录，本轮只修订答案。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×6</span> <b>Q54</b> · 你的项目里奖励函数怎么设计？为什么这么设？尝试过哪些其他形式？</summary>
+
+**答**：**设计原则**：
+1. **Dense vs Sparse**：dense 收敛快但易 reward hacking；sparse 难学但目标明确。
+2. **Shaping**：加 distance / progress 等中间信号引导。
+3. **Multi-component**：`R = task_reward + safety_penalty + smoothness_penalty`，相加形成总奖励。
+4. **Curriculum**：早期 dense 加快学习，后期切 sparse 防 hacking。
+
+**项目答题框架（套你的项目讲）**：
+- 任务奖励：成功完成给大 +R，关键 sub-event（接触 / 接近）给小正奖励。
+- 安全惩罚：碰撞 / 关节限位 / 力超限给负奖励。
+- 平滑惩罚：$-\alpha \|\Delta a\|^2$ 防抖动；trade-off：α 大动作平滑但响应慢。
+- 尝试过的其他形式：纯 sparse 收敛慢、纯 dense 易 hacking；最终选 hybrid。
+
+**易错**：reward hacking 不靠 reward 曲线判断——要看 rollout 视频是否真完成任务（模型常找"接近但不抓"刷分）。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×5</span> <b>Q55</b> · 你怎么收集数据？真机示教 vs 仿真 vs 人类视频，各自的优劣和落地代价？</summary>
+
+**答**：
+| 来源 | 优点 | 缺点 |
+|---|---|---|
+| **真机示教**（teleop/VR） | 保真度最高、含接触反馈 | 1 demo 30-60s，人工最贵（ALOHA / DROID / Bridge） |
+| **仿真** | 无限量、可标注 | Sim2Real gap，接触/软体仿不准（RLBench / ManiSkill / Isaac） |
+| **人类视频** | 海量、多样 | 无 action label，需 retargeting（Ego4D / Something / Epic-Kitchens） |
+
+**实务路线**：① 人类视频做 representation 预训练（R3M / VC-1 / VIP）→ ② 仿真大规模 DR pretrain → ③ 真机 ~300 demos fine-tune。
+
+**易错**：不要单一数据源——三者结合才 scale；纯真机太贵，纯仿真 gap 大。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q56</b> · 末端力控有噪声怎么办？阻抗控制 / 导纳控制怎么选？</summary>
+
+**答**：
+- **阻抗控制**（Impedance）：输入**期望位置** $x_d$，输出 **force/torque**；行为类似弹簧 + 阻尼，$F = K(x_d - x) + D \dot{x}$。
+- **导纳控制**（Admittance）：输入**外力** $F_{\text{ext}}$，输出**位置变化**；行为是"外力推 → 位置响应"。
+
+**选择**：
+| 场景 | 选哪个 |
+|---|---|
+| 机器人**主动**接触（打磨、装配、插针） | **阻抗** |
+| 人**主动**引导机器人（co-bot 教学） | **导纳** |
+| 高刚度任务（精确定位） | 阻抗（高 K） |
+| 高顺应性任务（抓软物） | 阻抗（低 K）或导纳 |
+
+**力觉噪声处理**：
+1. **低通滤波**（一阶 IIR / 卡尔曼）去高频抖动；
+2. **死区**：小于阈值视为 0；
+3. **力 / 力矩传感器标定**：去重力 + 偏置；
+4. **冗余传感融合**：关节扭矩 + 末端 F/T 双重估算。
+
+**易错**：阻抗 / 导纳是**对偶**关系，不是同义；阻抗高刚 / 导纳高柔，相反。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×3</span> <b>Q57</b> · 你的观测空间为什么这么设？图像 + proprio + force 多模态怎么对齐 / 归一化？</summary>
+
+**答**：**典型 VLA 观测**：
+- **图像**：1-4 帧 RGB，224×224 或 256×256，多视角（手腕相机 + 第三人称）。
+- **Proprio**：关节位置（rad）+ 关节速度（rad/s）+ 末端位姿（SE(3)）。
+- **Force/Torque**：末端 F/T 传感器 6 维 + 关节扭矩 N 维（可选）。
+
+**对齐 / 归一化**：
+1. **图像**：CHW float，预训练 mean/std 归一化（如 ImageNet 的 `[0.485, 0.456, 0.406]`）；多视角 concat 在 channel 维。
+2. **Proprio**：每维 $(x - \mu) / \sigma$，$\mu / \sigma$ 来自训练集统计。
+3. **Force**：通常归一化到 $[-1, 1]$（±10 N / 1 Nm 量程）；力觉噪声大需先低通滤波。
+
+**时序同步**：相机、关节、F/T 频率不同，训练样本通常以策略频率 / 样本频率为基准（如 10/20/50 Hz）。相机取最近且不晚于样本时刻的帧，或先估计链路延迟后做 offset 校正；高频 proprio、F/T 按样本时刻插值或窗口聚合。底层伺服 / PD 控制仍可保持数百 Hz 到 1 kHz。
+
+**历史窗口**：常用 4-8 帧图像 + 同步 proprio 序列；用 Transformer / RNN 编码时序。
+
+**易错**：图像忘记归一化（直接喂 [0, 255]，权重崩）；proprio 不归一化（不同关节量纲差 100 倍，训练不稳）。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>Q58</b> · 在双臂 / 移动操作场景里，你怎么设计动作空间？关节空间 vs 末端空间，trade-off 在哪？</summary>
+
+**答**：**两种动作空间**：
+| | 关节空间（joint） | 末端空间（end-effector） |
+|---|---|---|
+| 输出 | N 维关节位置 / 速度 / 扭矩 | 6-DoF SE(3) 末端位姿 + gripper |
+| 优点 | 直接给电机，无 IK 奇异 | 任务直观（"抓 cup"），数据效率高 |
+| 缺点 | 模型需学复杂关节耦合 | 需 IK 解算，奇异点问题 |
+| 数据需求 | 高（耦合复杂） | 低（任务对齐自然） |
+
+**VLA 实务**：大多数 VLA 用**末端空间**——
+- OpenVLA / RT-2：7 维（6-DoF 末端位姿 + 1 维 gripper）。
+- π0：同上 + 多形态适配。
+- 双臂：两套末端 = 14 维（ALOHA）。
+- Mobile + 双臂：+ 2 维 base = **16 维**（Mobile ALOHA）。
+
+**绝对 / 相对动作**：绝对动作输出目标关节值或目标末端位姿，适合标定稳定、低频轨迹复现；相对动作输出相邻控制步的 $\Delta q$ / $\Delta x$，对标定误差和物体扰动有一定鲁棒性，但会累积漂移，需要限幅、闭环校正和安全检查。答题时必须说清坐标系、单位、姿态表示、控制频率，以及夹爪 / 底盘维度。
+
+**Trade-off**：
+- **数据效率**：末端空间任务对齐好，少 demos 也能学（ACT 50 demos）。
+- **物理稳定**：关节空间避免 IK 奇异，但模型要学更复杂映射。
+- **跨 embodiment**：末端空间易标准化；关节空间因 DoF 不同难统一。
+
+**易错**：末端空间的 IK 奇异 / 关节限位问题需要**底层控制器 + 安全检查**兜底，不能让模型完全裸跑。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">补充</span> <b>Q59</b> · 数据采集到训练的数据链路如何设计？需要记录哪些字段？</summary>
+
+**答**：我会把它说成一条可复现的数据工程链路：先采 raw log，再做相机标定、时间同步、episode 切分、异常清洗、动作 / 状态归一化，最后导出统一 schema，比如 RLDS、LeRobot，或 HDF5 + metadata。字段至少包括时间戳、语言指令、图像观测、机器人状态、action、执行后状态、机器人 / 相机 / 控制频率等 metadata；如果有深度、相机标定、成功标签或子任务标签，也要一并记录。训练前还要按任务、场景、操作者或物体划分 train / val / test，避免同一个 episode 的相邻帧泄露到测试集。
+
+**易错**：不要只说"收了一些视频"，VLA 数据最关键的是 observation-action-time 三者可追溯。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">补充</span> <b>Q60</b> · 多频率传感器如何时间同步？为什么必须同步？</summary>
+
+**答**：真实机器人里相机、关节、力传感器和控制器频率通常不同，我会先统一时钟或记录硬件时间戳，再以策略训练的采样频率生成样本。相机取最近且不晚于样本时刻的帧，或在估计相机链路延迟后做 offset 校正；高频关节和力信号再按样本时刻插值、均值 / 末值聚合。同步的目的不是让底层控制降频，底层伺服仍常见于数百 Hz 到 1 kHz，而是让模型看到的 observation 对应它要模仿的 action。
+
+**易错**：错位一两帧在视频里不明显，但 BC 会学成"滞后控制"，真机表现就是抓取慢半拍、接触时过冲。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">补充</span> <b>Q61</b> · 机器人数据异常值如何清洗？归一化怎么做？</summary>
+
+**答**：清洗要分三层：帧级异常，如图像黑屏、时间戳跳变、关节速度尖峰；片段级异常，如遥操作中断、夹爪未响应；episode 级异常，如任务失败或碰撞。普通 BC 通常以成功演示和有效动作片段为主，明显坏帧和无效 episode 不直接混入同一个监督目标；如果失败片段带有恢复动作、偏好标注或奖励信息，可以用于恢复策略、offline RL、偏好学习，甚至作为纠错示范的一部分。归一化上，图像按 backbone 要求做 mean / std，proprio 和 action 用训练集均值方差或固定物理范围，夹爪二值 / 连续值要单独处理。
+
+**易错**：归一化统计只能 fit 训练集；用全量数据统计就是数据泄露。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">补充</span> <b>Q62</b> · 多任务混合训练 vs 单任务微调怎么取舍？什么时候会互相干扰？</summary>
+
+**答**：多任务混训适合想要泛化能力，尤其任务共享视觉、抓取、放置等底层技能时，它能让模型学到更稳的表征；单任务微调适合上线前追求某个任务的成功率和稳定性。互相干扰通常出现在任务动作分布冲突、语言指令不清、数据量极不均衡，或机器人形态不同却硬混时。工程上会用 task balancing、按任务采样、混入旧任务数据、LoRA adapter，或先通用预训练再小学习率微调。
+
+**易错**：多任务不必然提升，防遗忘也不是靠"混在一起"自动解决，要靠采样比例、保留集和分任务评测。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">补充</span> <b>Q63</b> · 训练中 loss 下降但真机成功率不升，怎么排查？</summary>
+
+**答**：我会先判断这是离线指标和闭环执行不一致。第一步看 validation loss 是否同步下降，排除过拟合；第二步按任务、物体、场景、操作者分桶统计成功率和失败类型；第三步回放模型输出，看动作是否平滑、是否饱和、夹爪时机是否错；第四步查数据切分、归一化、坐标系、action delay 和推理频率。很多时候 loss 下降只是模型更会拟合平均动作，真机需要的是闭环纠偏和关键接触时刻的正确动作。
+
+**易错**：不要只盯总 loss；机器人策略要看 rollout 视频、动作分布和真机分桶成功率。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">补充</span> <b>Q64</b> · 真机上机械臂停滞、动作不连续或漂移，怎么排查？</summary>
+
+**答**：我会按"模型输出、通信链路、控制器、机器人状态"四层排。先记录模型 action、反归一化 action、发送到控制器的 command、机器人实际 joint / EEF 轨迹，确认是不是单位、坐标系、限幅或 action chunk 拼接出了问题；再查推理耗时和通信延迟，看是否控制频率掉帧；最后看 IK 是否到奇异点、关节限位、安全保护或速度 / 加速度约束触发。漂移常见于相对动作累积误差，停滞常见于动作被安全层裁掉或夹爪 / 末端坐标系错。
+
+**易错**：不要一句话归因"模型不行"，必须用日志对齐 commanded、desired 和 actual trajectory。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">补充</span> <b>Q65</b> · 长序列任务成功率低，或物体随机摆放就失败，原因和优化？</summary>
+
+**答**：长序列失败通常是复合误差，前面每一步的小偏差都会把后续状态带出训练分布；随机摆放失败则多半是视觉定位、相机外参、深度尺度、语言 grounding 或训练数据覆盖不足。优化上，短期可以加 action chunking、重规划频率、失败恢复数据和关键子任务检测；数据上要做位置、背景、光照、物体实例的覆盖；架构上可用分层规划，把长任务拆成 pick、place、open 等技能。
+
+**易错**：随机化不是只换背景图，末端与物体的几何关系、遮挡和接触状态也要覆盖。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">补充</span> <b>Q66</b> · 如果加触觉、力反馈或 3D 信息，数据采集和模型要怎么改？</summary>
+
+**答**：加这些模态首先是数据问题：触觉、力、点云都要有时间戳、标定和单位；力传感器要视安装方式做 bias / gravity compensation；点云要处理外参、深度尺度和缺失点。模型上可以把 3D 用 point encoder 或 voxel / BEV encoder，触觉和力用 MLP / Transformer 编成 token，再和视觉语言 token 融合。输出端是否预测力或阻抗目标取决于底层控制栈；很多项目只是把力觉作为 observation 和安全约束，不直接让 VLA 输出力。
+
+**易错**：模态越多不一定越好；同步、标定和噪声处理不到位会让模型更不稳定。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">补充</span> <b>Q67</b> · 本地评测、官方榜单和真机结果不一致，怎么解释和验证？</summary>
+
+**答**：我会把三者看成不同分布。本地评测可能和训练集接近，官方榜单强调标准 benchmark，真机还多了延迟、标定、控制器和环境扰动。解释时先确认 action space、图像预处理、相机视角、任务成功定义和容差是否一致，再看是否用了同一 checkpoint、同一归一化统计和同一推理频率。验证上要固定随机种子和评测脚本，同时保留 rollout 视频和失败分类，最后用真机 A / B test 决策。
+
+**易错**：榜单高不代表真机稳，真机低也不一定是模型差，可能是部署接口或标定错。
+
+</details>
+
+<details class="qa">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">补充</span> <b>Q68</b> · LoRA / PEFT 微调 VLA 时冻结哪里？怎么验证没有灾难性遗忘？</summary>
+
+**答**：常见做法是冻结大部分视觉 backbone 和语言 backbone，只在 LLM attention / MLP 的低秩矩阵、action head 或 projector 上训练；数据很少时冻结更多，数据充足且 embodiment 差异大时可以开放 action head、adapter 或后几层。验证不能只看新任务成功率，还要保留一组旧任务、基础语言理解和原始机器人任务作为 replay eval，看是否出现旧任务成功率下降、语言指令理解退化或动作分布漂移。
+
+**易错**：LoRA 省显存但不自动防遗忘；学习率、rank、训练步数和 replay 数据同样关键。
+
+</details>
+
+---
+
+## §H 手撕代码（9 题）
+
+> IL / VLA 手撕段——与上文"概念+答案"题区分开。本节每题给"考察点 / 实现 / 易错"——附 ≤30 行 Python 实现。
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l1">L1</span> <span class="freq">🔥×7</span> <b>✍ H01</b> · 手撕 Behavior Cloning（连续 / 离散动作）</summary>
+
+**考察点**：BC 本质是监督学习；连续 MSE / Gaussian NLL、离散 CE；根本限制是 distribution shift（无 reward 信号）。
+
+**实现**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def bc_loss_mse(pi, s, a_star):
+    # 连续 deterministic：action 须先归一化到 [-1,1]，否则量纲不一压不住
+    return F.mse_loss(pi(s), a_star)
+
+def bc_loss_gaussian(pi, s, a_star, log_std_min=-5.0, log_std_max=2.0):
+    # 连续 stochastic：模型出 μ, log_σ；clamp log_σ 防数值发散
+    mu, log_std = pi(s)
+    log_std = log_std.clamp(log_std_min, log_std_max)
+    # -log N(a*; μ, σ) 的可降项：0.5·((a-μ)/σ)² + log σ + const
+    return (0.5 * ((a_star - mu) / log_std.exp()).pow(2) + log_std).sum(-1).mean()
+
+def bc_loss_ce(pi, s, a_token):
+    # 离散（OpenVLA-style）：a_token 是离散 bin id
+    return F.cross_entropy(pi(s), a_token)
+```
+
+**易错**：把 BC 当 RL；忘 action 归一化；`log_σ` 不 clamp 数值发散；离散用 MSE（应 CE）。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l3">L3</span> <span class="freq">🔥×8</span> <b>✍ H02</b> · 手撕 Diffusion Policy 训练 step（DDPM ε-prediction）</summary>
+
+**考察点**：`x_t=√ᾱ_t·x_0+√(1-ᾱ_t)·ε`；ε-prediction 目标；视觉 obs 作为 cross-attn condition。
+
+**实现**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def make_alpha_bar(T=1000):
+    # cosine schedule (Nichol & Dhariwal)：ᾱ_t = f(t)/f(0)，比 linear 末段更稳
+    steps = torch.arange(T + 1) / T
+    f = torch.cos((steps + 0.008) / 1.008 * torch.pi / 2).pow(2)
+    return (f / f[0])[1:]  # 长度 T，单调递减，保证 1-ᾱ_t ∈ (0,1)
+
+def dp_train_step(model, x0, cond, alpha_bar):
+    # x0: [B, H, action_dim] 未来 H 步 action chunk
+    # cond: [B, D_cond] 视觉特征（不能漏，否则退化为无条件采样）
+    B = x0.size(0)
+    t = torch.randint(0, len(alpha_bar), (B,), device=x0.device)
+    ab = alpha_bar[t].view(B, 1, 1)  # 广播到 [B,H,action_dim]
+    eps = torch.randn_like(x0)
+    xt = ab.sqrt() * x0 + (1 - ab).sqrt() * eps  # forward q(x_t|x_0)
+    eps_pred = model(xt, t, cond=cond)
+    return F.mse_loss(eps_pred, eps)  # ε-prediction 目标
+```
+
+**易错**：漏掉视觉 cond 进 UNet；把 action 当图像 spatial 维；推理 K 步太多（DDIM 10-50 即可）；不用 EMA 生成抖。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×5</span> <b>✍ H03</b> · 手撕 ACT action chunking loss</summary>
+
+**考察点**：chunk 长度 k 缓解 distribution shift；CVAE latent z 建模动作多模态；temporal ensemble 推理。
+
+**实现**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def act_loss(decoder, encoder, qpos, action_chunk, cond, beta=10.0):
+    # action_chunk: [B, k, action_dim]；cond: 视觉特征
+    # encoder 输入 [qpos, action_chunk]，[CLS] token 出 μ, log_σ²
+    mu, logvar = encoder(qpos, action_chunk)             # [B, z_dim] each
+    std = (0.5 * logvar).exp()
+    z = mu + std * torch.randn_like(std)                  # 训练时采样 (reparam)
+    # decoder：cross-attn(query=fixed pos, k/v = cond ⊕ qpos ⊕ z)
+    a_hat = decoder(qpos=qpos, cond=cond, z=z)            # [B, k, action_dim]
+    # 重建损失用 L1（ACT 论文实验上比 MSE 更稳）
+    recon = F.l1_loss(a_hat, action_chunk)
+    # KL(q‖N(0,I)) 闭式
+    kl = 0.5 * (mu.pow(2) + logvar.exp() - 1 - logvar).sum(-1).mean()
+    return recon + beta * kl
+
+def act_inference(decoder, qpos, cond, z_dim):
+    # 推理时 z=0 不再采样，避免 latent 抖动
+    z = torch.zeros(qpos.size(0), z_dim, device=qpos.device)
+    return decoder(qpos=qpos, cond=cond, z=z)
+```
+
+**易错**：chunk 太短退化为 BC；β 太大压死 latent；推理仍从 latent 采样导致抖动；recon 用 MSE 反而不如 L1 稳。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>✍ H04</b> · 手撕 OpenVLA 风格 action token CE loss</summary>
+
+**考察点**：连续动作离散到 256 bin → LM head next-token CE；用 quantile 切分（非 min/max）匹配数据分布。
+
+**实现**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def fit_bins_quantile(actions, n_bin=256):
+    # actions: [N, D]；按 quantile 而非 min/max 切分，防长尾压缩
+    qs = torch.linspace(0, 1, n_bin + 1, device=actions.device)
+    # 每维独立切：返回 [D, n_bin+1] 的边界
+    return torch.stack([torch.quantile(actions[:, d], qs) for d in range(actions.size(1))])
+
+def discretize(action, bins, vocab_offset):
+    # action: [B, D]；bins: [D, n_bin+1]
+    # 用 bucketize 找落在哪个区间 → token id（偏移到词表预留段）
+    token_ids = torch.stack([
+        torch.bucketize(action[:, d], bins[d, 1:-1])  # 去掉首尾哨兵
+        for d in range(action.size(1))
+    ], dim=1)
+    return token_ids + vocab_offset  # 落到词表预留的 action token 段
+
+def openvla_loss(logits, target_ids, action_mask):
+    # logits: [B, L, V]；target_ids: [B, L]；action_mask 仅在 action token 处为 1
+    # 屏蔽 prompt/image token 的 loss，只学 action 段
+    return F.cross_entropy(logits.transpose(1, 2), target_ids,
+                           reduction='none').mul(action_mask).sum() / action_mask.sum().clamp(min=1)
+```
+
+**易错**：用全局 min/max 切 bin 长尾压缩；mask 后 target_ids 仍要是合法 vocab id（用 `ignore_index=-100` 时改写法）；推理用 sampling 而非 argmax 致动作抖。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×9</span> <b>✍ H05</b> · 手撕 CLIP / InfoNCE 对比损失</summary>
+
+**考察点**：对称 CE；温度 τ 用可学的 `exp(t)` + clamp；为何 i→t 与 t→i 各算一次（对齐两个方向）。
+
+**实现**：
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class CLIPLoss(nn.Module):
+    def __init__(self, init_t=0.07):
+        super().__init__()
+        # 学 log(1/τ)；用 exp 保证 τ>0；clamp 防梯度爆炸
+        self.log_inv_t = nn.Parameter(torch.tensor(1.0 / init_t).log())
+
+    def forward(self, img_feat, txt_feat):
+        # 必须 L2 归一化，否则点积≠cosine
+        img_emb = F.normalize(img_feat, dim=-1)
+        txt_emb = F.normalize(txt_feat, dim=-1)
+        # 对照官方 CLIP：clamp log(1/τ) ≤ ln(100) ≈ 4.605
+        scale = self.log_inv_t.clamp(max=4.605).exp()
+        logits = scale * img_emb @ txt_emb.T  # [N, N]
+        labels = torch.arange(img_emb.size(0), device=img_emb.device)
+        # 对称：i→t 沿行做 softmax；t→i 沿列做 softmax
+        return (F.cross_entropy(logits, labels) +
+                F.cross_entropy(logits.T, labels)) / 2
+```
+
+**易错**：忘 L2 归一化点积≠cosine；τ 未 clamp 梯度爆炸；batch 太小负样本不足；只算单向 CE 失对称性。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×3</span> <b>✍ H06</b> · 手撕 DAgger（数据聚合）训练流程</summary>
+
+**考察点**：解决 BC 的 distribution shift；每轮 rollout 拿专家标注新数据回灌；β-mix 早期靠专家、后期靠 π。
+
+**实现**：
+
+```python
+import random
+
+def dagger_train(pi, expert, env, train_fn, n_iter=10, rollout_T=200):
+    # train_fn(pi, dataset) -> 新 pi；专家与环境为黑箱
+    dataset = expert.collect()  # D_0：纯专家轨迹（先 BC 起步）
+    pi = train_fn(pi, dataset)
+    for i in range(1, n_iter + 1):
+        beta = max(0.05, 0.9 ** i)  # 退火不要太快，保留早期专家引导
+        obs = env.reset()
+        traj_obs, traj_act = [], []
+        for _ in range(rollout_T):
+            # β-mix rollout：以 β 用专家动作走、否则用 π；标注始终来自专家
+            a_exec = expert.act(obs) if random.random() < beta else pi.act(obs)
+            traj_obs.append(obs)
+            traj_act.append(expert.act(obs))  # 关键：标注用专家在该 obs 的动作
+            obs, _, done, _ = env.step(a_exec)
+            if done:
+                break
+        dataset.extend(list(zip(traj_obs, traj_act)))  # 只加不替换
+        pi = train_fn(pi, dataset)
+    return pi
+```
+
+**易错**：标注用执行动作而非专家在该 obs 的动作（破坏 DAgger 本质）；β 退火太快首轮就全靠 π；数据集替换而非累加；忽略 query 选择策略致标注爆炸。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×4</span> <b>✍ H07</b> · 手撕 cross-attention（视觉-语言融合）</summary>
+
+**考察点**：与 self-attn 唯一区别 = K/V 来自另一序列；输出长度跟 Q；mask 形状 `[L_q, L_kv]`。
+
+**实现**：
+
+```python
+import math
+import torch.nn as nn
+import torch.nn.functional as F
+
+class CrossAttention(nn.Module):
+    def __init__(self, d_q, d_kv, d_model, h):
+        super().__init__()
+        assert d_model % h == 0
+        self.h, self.d_k = h, d_model // h
+        self.Wq = nn.Linear(d_q, d_model)
+        self.Wk = nn.Linear(d_kv, d_model)  # K/V 从另一序列投影
+        self.Wv = nn.Linear(d_kv, d_model)
+        self.Wo = nn.Linear(d_model, d_model)
+
+    def forward(self, x_q, x_kv, mask=None):
+        # x_q: [B, Lq, d_q]; x_kv: [B, Lkv, d_kv]
+        B, Lq, _ = x_q.shape
+        Lkv = x_kv.size(1)
+        q = self.Wq(x_q).view(B, Lq, self.h, self.d_k).transpose(1, 2)
+        k = self.Wk(x_kv).view(B, Lkv, self.h, self.d_k).transpose(1, 2)
+        v = self.Wv(x_kv).view(B, Lkv, self.h, self.d_k).transpose(1, 2)
+        scores = q @ k.transpose(-2, -1) / math.sqrt(self.d_k)
+        if mask is not None:  # mask: [B, 1, Lq, Lkv]
+            scores = scores.masked_fill(mask, float('-inf'))
+        out = F.softmax(scores, -1) @ v  # 输出长度 = Lq
+        return self.Wo(out.transpose(1, 2).contiguous().view(B, Lq, -1))
+```
+
+**易错**：把 K/V 也从 `x_q` 投影（变 self-attn）；mask 形状按 self-attn 设；V 忘换序列。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">🔥×7</span> <b>✍ H08</b> · 手撕 KV cache（增量解码）</summary>
+
+**考察点**：prefill 后单步只算新 token 的 Q；旧 K/V 复用而非重算；显存随序列线性增长。
+
+**实现**：
+
+```python
+import math
+import torch
+import torch.nn.functional as F
+
+def attn_with_kv_cache(q_new, k_new, v_new, kv_cache, layer_idx):
+    # q_new/k_new/v_new: 当前 step token 的 q,k,v，形状 [B, h, 1, d_k]
+    # kv_cache[layer_idx] = (K_past, V_past)，shape [B, h, L_past, d_k]
+    if kv_cache[layer_idx] is None:
+        K, V = k_new, v_new  # prefill 首步
+    else:
+        K_past, V_past = kv_cache[layer_idx]
+        # 沿序列维 concat；旧 K/V 不再重算（这是 cache 核心）
+        K = torch.cat([K_past, k_new], dim=2)
+        V = torch.cat([V_past, v_new], dim=2)
+    kv_cache[layer_idx] = (K, V)  # 写回
+    d_k = q_new.size(-1)
+    # decode 单步只算 [B,h,1,L_new] 的 scores，不需要 causal mask
+    scores = q_new @ K.transpose(-2, -1) / math.sqrt(d_k)
+    return F.softmax(scores, -1) @ V  # [B, h, 1, d_k]
+```
+
+**易错**：每步把整段重算（失去 cache 意义）；忘对新 K 也加 RoPE（位置错）；显存爆但没 paged 管理；并发请求共享同一 cache。
+
+</details>
+
+<details class="qa qa-handcoding">
+<summary><span class="lv lv-l2">L2</span> <span class="freq">补充</span> <b>✍ H09</b> · 手撕 Flow Matching 训练 step</summary>
+
+**考察点**：这是 rectified / linear path 版本的 Flow Matching。把归一化后的动作 $x_1$ 和噪声 $x_0$ 连成直线路径，随机采样 $t$ 得到 $x_t=(1-t)x_0+t x_1$，目标速度是 $v^*=x_1-x_0$，模型学习 $v_\theta(o,x_t,t)$。
+
+**实现**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def flow_matching_loss(model, obs, action):
+    # action 通常先归一化；形状可为 [B, D] 或 [B, horizon, D]
+    x1 = action
+    x0 = torch.randn_like(x1)
+    t_shape = (x1.size(0),) + (1,) * (x1.ndim - 1)
+    t = torch.rand(t_shape, device=x1.device, dtype=x1.dtype)
+    xt = (1 - t) * x0 + t * x1
+    v_target = x1 - x0
+    v_pred = model(obs, xt, t)
+    return F.mse_loss(v_pred, v_target)
+```
+
+**推理**：从噪声动作开始，用欧拉积分多步更新：$x \leftarrow x + \Delta t \cdot v_\theta(o,x,t)$，最后得到单步 action 或 action chunk。
+
+**易错**：不要把 Flow Matching 说成"预测噪声 $\epsilon$"；这里回归的是速度场。也不要说所有 Flow Matching 都必须用这条直线路径，它只是机器人动作生成里常见、好讲的一种形式。
+
+</details>

@@ -46,6 +46,8 @@ export interface KnowledgeQuestionSummary {
   estimatedMinutes: number | null;
   isFeatured: boolean;
   stats: KnowledgeStats | null;
+  /** 🔥×N — independent public interview reports per the imported external bank; null = unknown. */
+  sourceFreq: number | null;
 }
 
 /** Full reading view of a canonical question. */
@@ -56,6 +58,23 @@ export interface KnowledgeQuestionDetail extends KnowledgeQuestionSummary {
   keyPoints: string[];
   commonMistakes: string[];
   interviewTips: string[];
+  /** Provenance for imported/enriched questions (repo, license, volume/section). */
+  sourceMeta: KnowledgeSourceMeta | null;
+}
+
+/** Subset of the questions.source_meta jsonb contract used by the UI. */
+export interface KnowledgeSourceMeta {
+  source?: string;
+  repo?: string;
+  commit?: string;
+  license?: string;
+  volume_title?: string;
+  section?: string;
+  qid?: string;
+  freq_label?: string;
+  note?: string;
+  merged_from?: string[];
+  [key: string]: unknown;
 }
 
 export interface KnowledgeTopic {
