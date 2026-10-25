@@ -341,6 +341,17 @@ docs/                      # 架构、隐私、部署和运维文档
 - [docs/judge-environment.md](./docs/judge-environment.md)：ML judge 运行环境、资源限制与导入白名单
 
 
+## 🙏 致谢
+
+题库的部分内容来自以下项目与创作者，在此郑重致谢（每道导入题的详情页底部也标注了具体题源）：
+
+- **[WinstonJQ/embodied-interview-qa](https://github.com/WinstonJQ/embodied-interview-qa)**（[MIT License](https://github.com/WinstonJQ/embodied-interview-qa/blob/master/LICENSE)）：V1.5.0 全量导入了这份中文具身智能高频面试题库（412 题，答案原文收录并逐题人工审校；另有 24 道重复题做了答案融合）。它自己的 🔥 面经频次统计口径也一并保留进了本站的高频标记。
+- **[duoan/TorchCode](https://github.com/duoan/TorchCode)**（已获作者授权）：Coding 题库中 26 道「LLM 核心算子」PyTorch 手写题改写自这套题集。
+- **bo233 的具身智能面经系列**：[《面经（一）：π 论文篇》](https://zhuanlan.zhihu.com/p/2081126347766875774)（知乎原文，微信公众号「深蓝职通车」授权转载）与《面经（二）：强化学习为什么容易被问挂》——π 系列 24 题与 RL 后训练 26 题的题源（题干沿用原文，答案为本站撰写）。
+- **小红书具身/大模型高频题卡**：大模型八股与具身 VLA 部分知识题的题源。
+
+如果以上任何内容的原作者对当前的收录方式有异议，请[开 issue](https://github.com/oplisty/RoboPrep/issues)告知，我们会第一时间调整或下架对应内容。
+
 ## ⭐ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=oplisty/RoboPrep&type=Date)](https://www.star-history.com/#oplisty/RoboPrep&Date)
