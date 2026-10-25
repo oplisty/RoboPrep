@@ -10,7 +10,7 @@
 
 ## 最新动态
 
-- **2026-10 · Knowledge 四连更（79 → 491 题）**：全量导入开源题库 [WinstonJQ/embodied-interview-qa](https://github.com/WinstonJQ/embodied-interview-qa)（MIT）：九卷 445 条中 33 条与现有题重复，跳过重复并将源答案要点融合进 24 个现有题，净增 412 题（含 84 道手撕、30 道 LeetCode、10 道系统设计、8 道前沿研究题），并新增 🔥 外部面经频次标记与题源署名，分题明细见 [CHANGELOG.md](./CHANGELOG.md)。
+- **2026-10 · V1.5.0 具身题库大版本（Knowledge 79 → 491 题）**：全量导入开源题库 [WinstonJQ/embodied-interview-qa](https://github.com/WinstonJQ/embodied-interview-qa)（MIT）：九卷 445 条中 33 条与现有题重复，跳过重复并将源答案要点融合进 24 个现有题，净增 412 题（含 84 道手撕、30 道 LeetCode、10 道系统设计、8 道前沿研究题），并新增 🔥 外部面经频次标记与题源署名，分题明细见 [CHANGELOG.md](./CHANGELOG.md)。
 
 - **2026-09 · V1.0.0 正式发布 + 题库三连更（Knowledge 10 → 79 题，Coding +26 题）**：V1.0.0 上线面经、Knowledge、Coding、公司情报与完整审核管线；当月 Knowledge 题库自 π 系列面经、大模型八股与具身 RL 后训练三份高频题源新增 69 题（每题配标准答案与深挖答案），Coding 题库新增 26 道「LLM 核心算子」手写 PyTorch 题，分题明细见 [CHANGELOG.md](./CHANGELOG.md)。
 
@@ -19,7 +19,7 @@
 ## 功能概览
 
 - 面试经历：公司、岗位、年份、季节、地点、轮次和具体问题
-- Knowledge：Embodied AI、Transformer、RL、VLA、机器人学等主题的知识题
+- Knowledge：491 道知识题，覆盖 Embodied AI、Transformer、RL、VLA、机器人学、SLAM 与 3D 感知、具身导航、腿足控制、遥操作、工程落地、系统设计与前沿方向；含 🔥 外部面经频次标记（按公开面经独立计数排序优先级）、84 道手撕与 30 道 LeetCode 实现题，导入题附题源署名
 - Coding：Python / Embodied AI coding 题与自动评测。program、function、class 三种判题模式，PyTorch 题按数值、梯度、形状逐用例判分，并配有「LLM 核心算子」等主题题单（collections）
 - 公司情报：岗位分布、常见主题、面试趋势和题目频率
 - 内容管线：原始经历 → 结构化草稿 → 人工审核 → 发布
@@ -172,13 +172,15 @@ pnpm dev
 
 打开 [http://localhost:3001](http://localhost:3001)。supabase db reset 会重新执行所有迁移和 seed.sql，只对本地数据库使用。
 
-db reset 之后本地只有 seed.sql 的演示题库。要练习完整题库，把两个补充 seed 粘贴进本地 Studio（[http://127.0.0.1:54323](http://127.0.0.1:54323)）的 SQL Editor 执行，或用 psql 导入；每次 db reset 后都需要重新执行一遍：
+db reset 之后本地只有 seed.sql 的演示题库。要练习完整题库，把三个补充 seed 粘贴进本地 Studio（[http://127.0.0.1:54323](http://127.0.0.1:54323)）的 SQL Editor 执行，或用 psql 导入；每次 db reset 后都需要重新执行一遍：
 
 ```bash
 docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
   < supabase/seed_week5_function_problems.sql
 docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
   < supabase/seed_torchcode_problems.sql
+docker exec -i supabase_db_roboprep psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < supabase/seed_embodied_interview_qa.sql   # 迁移 0025 已随 db reset 应用，直接导入即可
 ```
 
 ### 本地启用 Coding 判题
