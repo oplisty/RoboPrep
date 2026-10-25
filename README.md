@@ -340,3 +340,7 @@ docs/                      # 架构、隐私、部署和运维文档
 - [docs/coding-problem-authoring.md](./docs/coding-problem-authoring.md)：coding 题写作指南与批量生成工作流
 - [docs/judge-environment.md](./docs/judge-environment.md)：ML judge 运行环境、资源限制与导入白名单
 
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=oplisty/RoboPrep&type=Date)](https://www.star-history.com/#oplisty/RoboPrep&Date)
