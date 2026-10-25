@@ -555,16 +555,20 @@ def sql_json(value) -> str:
 
 
 def load_topic_uuids() -> dict[str, str]:
-    """slug → uuid-tail for both new topics here and topics in seed.sql."""
-    inv = dict(
-        re.findall(
+    """slug → FULL uuid for both new topics here and topics in seed.sql."""
+    lookup = {
+        slug: uuid
+        for uuid, slug in re.findall(
             r"'(d1000000-0000-4000-8000-[0-9a-f]{12})',\s*'[^']+',\s*'([a-z0-9-]+)'",
             EXISTING_SEED.read_text(encoding="utf-8"),
         )
-    )
-    lookup = {slug: tail for tail, slug in inv.items()}
+    }
     for tail, _name, slug, _parent, _desc in NEW_TOPICS:
-        lookup[slug] = tail
+        lookup[slug] = f"d1000000-0000-4000-8000-{tail}"
+    # Guard: every value must be a well-formed uuid (catches double-prefix bugs).
+    bad = [v for v in lookup.values() if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", v)]
+    if bad:
+        raise SystemExit(f"malformed topic uuids: {bad}")
     return lookup
 
 
@@ -663,10 +667,10 @@ def cmd_sql() -> None:
     links = []
     for e in entries:
         for t in e["topics"]:
-            tail = topic_uuid.get(t)
-            if not tail:
+            tu = topic_uuid.get(t)
+            if not tu:
                 raise SystemExit(f"unknown topic slug: {t} (question {e['slug']})")
-            links.append(f"  ('{id_by_slug[e['slug']]}', 'd1000000-0000-4000-8000-{tail}', 1.0)")
+            links.append(f"  ('{id_by_slug[e['slug']]}', '{tu}', 1.0)")
     w("insert into public.question_topics (question_id, topic_id, weight) values")
     w(",\n".join(links))
     w("on conflict (question_id, topic_id) do nothing;")
@@ -681,6 +685,11 @@ def cmd_sql() -> None:
         w("")
 
     SEED_OUT.write_text("\n".join(out) + "\n", encoding="utf-8")
+    # Post-write guard: no double-prefixed uuid may ever reach the database.
+    final_sql = SEED_OUT.read_text(encoding="utf-8")
+    for marker in ("8000-d1000000", "8000-f1000000"):
+        if marker in final_sql:
+            raise SystemExit(f"malformed double-prefixed uuid in generated seed near {marker}")
     print(f"wrote {SEED_OUT}")
     print(f"questions: {len(entries)} (skipped {len(skip_slugs)} dups), topic links: {len(links)}")
 
